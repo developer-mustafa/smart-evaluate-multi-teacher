@@ -307,13 +307,11 @@ export function init(dependencies) {
  * Members পেজ (#page-members) রেন্ডার করে।
  */
 export function render() {
-  if (!elements.membersPage) {
-    console.error('❌ Members render failed: Page element #page-members not found.');
-    return;
-  }
-  console.log('Rendering Members (List) page...');
-  populateFilters(); // ফিল্টারগুলো পপুলেট করি
-  _renderStudentsList(); // তালিকা রেন্ডার করি
+  if (!elements.membersPage) return;
+  populateFilters();
+  _populateClassDropdown();
+  _populateSectionDropdown();
+  _renderStudentsList();
 }
 
 /**
@@ -344,6 +342,8 @@ function _cacheDOMElements() {
     elements.studentNameInput = elements.membersPage.querySelector('#studentNameInput');
     elements.studentRollInput = elements.membersPage.querySelector('#studentRollInput');
     elements.studentGenderInput = elements.membersPage.querySelector('#studentGenderInput');
+    elements.studentClassInput = elements.membersPage.querySelector('#studentClassInput');
+    elements.studentSectionInput = elements.membersPage.querySelector('#studentSectionInput');
     elements.studentGroupInput = elements.membersPage.querySelector('#studentGroupInput');
     elements.studentContactInput = elements.membersPage.querySelector('#studentContactInput');
     elements.studentAcademicGroupInput = elements.membersPage.querySelector('#studentAcademicGroupInput');
@@ -381,6 +381,12 @@ function _setupEventListeners() {
     uiManager.addListener(elements.downloadTemplateBtn, 'click', _handleDownloadTemplate);
     uiManager.addListener(elements.csvFileInput, 'change', _handleFileSelect);
     uiManager.addListener(elements.processImportBtn, 'click', _handleProcessImport);
+    
+    // Cascading dropdown: Class -> Section
+    uiManager.addListener(elements.studentClassInput, 'change', (e) => {
+      const selectedClassId = e.target.value;
+      _populateSectionDropdown(selectedClassId);
+    });
 
     // Filters (Members List)
     uiManager.addListener(elements.membersFilterGroup, 'change', (e) => {
@@ -1228,27 +1234,53 @@ function _handleDeleteStudent(studentId) {
 // --- CSV Handling ---
 
 function _handleDownloadTemplate() {
-  const headers = ['নাম', 'রোল', 'লিঙ্গ', 'একাডেমিক গ্রুপ', 'সেশন', 'যোগাযোগ', 'গ্রুপের নাম', 'দায়িত্ব কোড'];
+  const headers = ['নাম', 'রোল', 'লিঙ্গ', 'ক্লাস', 'শাখা', 'একাডেমিক গ্রুপ', 'সেশন', 'যোগাযোগ', 'গ্রুপের নাম', 'দায়িত্ব কোড'];
   const example = [
     'উদাহরণ শিক্ষার্থী',
     '১০১',
     'ছেলে',
-    'HSC 2025',
+    'নবম',
+    'A',
+    'বিজ্ঞান',
     '2023-24',
     '01xxxxxxxxx',
     'গ্রুপ আলফা',
     'team-leader',
   ];
-  const rolesNote = `# দায়িত্ব কোডসমূহ: team-leader, time-keeper, reporter, resource-manager, peace-maker (খালি রাখা যাবে)`;
+  const rolesNote = `# দায়িত্ব কোডসমূহ: team-leader, time-keeper, reporter, resource-manager, peace-maker (খালি রাখা যাবে)`;
+  const classNote = `# ক্লাস ও শাখা: Class Management থেকে তৈরি করা ক্লাস ও শাখার নাম লিখুন`;
   const csv = Papa.unparse([headers, example], { header: false });
-  const fullCsv = rolesNote + '\n' + csv;
-  const blob = new Blob([`\uFEFF${fullCsv}`], { type: 'text/csv;charset=utf-8;' }); // Add BOM
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'student_template.csv';
-  link.click();
-  URL.revokeObjectURL(link.href);
-  uiManager.showToast('CSV টেমপ্লেট ডাউনলোড শুরু হয়েছে।', 'info');
+  const fullCsv = rolesNote + '\n' + classNote + '\n' + csv;
+  
+  // Create blob with BOM for UTF-8
+  const BOM = '\uFEFF';
+  const csvContent = BOM + fullCsv;
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  
+  // Use modern download approach
+  if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+    // IE11 support
+    window.navigator.msSaveOrOpenBlob(blob, 'student_template.csv');
+  } else {
+    // Modern browsers
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'student_template.csv';
+    link.style.display = 'none';
+    
+    // Add to DOM, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup after a delay
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 250);
+  }
+  
+  uiManager.showToast('CSV টেমপ্লেট ডাউনলোড শুরু হয়েছে।', 'info');
 }
 
 function _handleFileSelect() {
@@ -1284,7 +1316,7 @@ function _handleProcessImport() {
       const errors = [];
       const newStudents = [];
       if (!data || data.length === 0) errors.push('CSV ফাইলটি খালি।');
-      const requiredHeaders = ['নাম', 'রোল', 'লিঙ্গ', 'একাডেমিক গ্রুপ', 'সেশন'];
+      const requiredHeaders = ['নাম', 'রোল', 'লিঙ্গ', 'ক্লাস', 'শাখা', 'একাডেমিক গ্রুপ', 'সেশন'];
       const missingHeaders = requiredHeaders.filter((h) => !results.meta.fields.includes(h));
       if (missingHeaders.length > 0) errors.push(`আবশ্যক হেডার নেই: ${missingHeaders.join(', ')}`);
 
@@ -1295,6 +1327,8 @@ function _handleProcessImport() {
       }
 
       const groupsMap = new Map(stateManager.get('groups').map((g) => [g.name.toLowerCase(), g.id]));
+      const classesMap = new Map(stateManager.get('classes').map((c) => [c.name.toLowerCase(), c.id]));
+      const sectionsMap = new Map(stateManager.get('sections').map((s) => [s.name.toLowerCase(), s.id]));
       const existingStudents = stateManager.get('students');
       uiManager.showLoading('শিক্ষার্থী ডেটা যাচাই করা হচ্ছে...');
 
@@ -1304,33 +1338,48 @@ function _handleProcessImport() {
         const name = row['নাম'];
         const roll = row['রোল'];
         const gender = row['লিঙ্গ'];
+        const className = (row['ক্লাস'] || '').toLowerCase();
+        const sectionName = (row['শাখা'] || '').toLowerCase();
         const academicGroup = row['একাডেমিক গ্রুপ'];
         const session = row['সেশন'];
         const contact = row['যোগাযোগ'] || '';
         const groupName = (row['গ্রুপের নাম'] || '').toLowerCase();
         const roleCode = (row['দায়িত্ব কোড'] || '').toLowerCase();
 
-        if (!name || !roll || !gender || !academicGroup || !session) {
-          return { error: `লাইন ${lineNumber}: আবশ্যক ফিল্ড খালি রয়েছে।` };
+        if (!name || !roll || !gender || !className || !sectionName || !academicGroup || !session) {
+          return { error: `লাইন ${lineNumber}: আবশ্যক ফিল্ড খালি রয়েছে।` };
         }
         if (!['ছেলে', 'মেয়ে'].includes(gender)) {
           return { error: `লাইন ${lineNumber}: লিঙ্গ (${gender}) অবশ্যই 'ছেলে' অথবা 'মেয়ে' হতে হবে।` };
         }
+        
+        // Validate class
+        const classId = classesMap.get(className) || '';
+        if (!classId) {
+          return { error: `লাইন ${lineNumber}: "${row['ক্লাস']}" নামে ক্লাস পাওয়া যায়নি।` };
+        }
+        
+        // Validate section
+        const sectionId = sectionsMap.get(sectionName) || '';
+        if (!sectionId) {
+          return { error: `লাইন ${lineNumber}: "${row['শাখা']}" নামে শাখা পাওয়া যায়নি।` };
+        }
+        
         const groupId = groupName ? groupsMap.get(groupName) || '' : '';
         if (groupName && !groupId) {
-          return { error: `লাইন ${lineNumber}: "${row['গ্রুপের নাম']}" নামে গ্রুপ পাওয়া যায়নি।` };
+          return { error: `লাইন ${lineNumber}: "${row['গ্রুপের নাম']}" নামে গ্রুপ পাওয়া যায়নি।` };
         }
 
         try {
           const isDuplicateInDB = await dataService.checkStudentUniqueness(roll, academicGroup);
           if (isDuplicateInDB) {
-            return { error: `লাইন ${lineNumber}: রোল ${roll} (${academicGroup}) ডাটাবেসে ইতিমধ্যে রয়েছে।` };
+            return { error: `লাইন ${lineNumber}: রোল ${roll} (${academicGroup}) ডাটাবেসে ইতিমধ্যে রয়েছে।` };
           }
         } catch (dbError) {
           return { error: `লাইন ${lineNumber}: রোল ${roll} যাচাই করতে সমস্যা (${dbError.message})।` };
         }
 
-        return { student: { name, roll, gender, groupId, contact, academicGroup, session, role: roleCode } };
+        return { student: { name, roll, gender, classId, sectionId, groupId, contact, academicGroup, session, role: roleCode } };
       });
 
       const resultsData = await Promise.all(validationPromises);
@@ -1390,6 +1439,144 @@ function _handleProcessImport() {
       uiManager.showToast(`CSV ফাইল পার্স করতে সমস্যা: ${err.message}`, 'error');
     },
   });
+}
+
+// --- Quick Add Functions ---
+
+/**
+ * Quick add class - mini modal
+ * @private
+ */
+async function _handleQuickAddClass() {
+  const contentHTML = `
+    <div>
+      <label class="label" for="quickClassName">ক্লাসের নাম *</label>
+      <input id="quickClassName" type="text" class="form-input w-full" maxlength="50" placeholder="যেমন: নবম, দশম">
+    </div>
+    <div class="mt-3">
+      <label class="label" for="quickClassCode">কোড</label>
+      <input id="quickClassCode" type="text" class="form-input w-full" maxlength="20" placeholder="যেমন: IX, X">
+    </div>
+  `;
+  
+  uiManager.showEditModal('নতুন ক্লাস যোগ করুন', contentHTML, async () => {
+    const name = document.getElementById('quickClassName')?.value.trim();
+    const code = document.getElementById('quickClassCode')?.value.trim();
+    
+    if (!name) {
+      uiManager.showToast('ক্লাসের নাম লিখুন।', 'warning');
+      return;
+    }
+    
+    uiManager.showLoading('ক্লাস যোগ করা হচ্ছে...');
+    try {
+      const newClassId = await dataService.addClass({ name, code });
+      await app.refreshAllData();
+      
+      // Reload class dropdown
+      await _populateClassDropdown();
+      
+      // Auto-select newly created class
+      if (elements.studentClassInput) {
+        elements.studentClassInput.value = newClassId;
+      }
+      
+      uiManager.hideModal(uiManager.elements.editModal);
+      uiManager.showToast('ক্লাস সফলভাবে যোগ করা হয়েছে।', 'success');
+    } catch (error) {
+      console.error('❌ Error adding class:', error);
+      uiManager.showToast(`ক্লাস যোগ করতে সমস্যা: ${error.message}`, 'error');
+    } finally {
+      uiManager.hideLoading();
+    }
+  });
+}
+
+/**
+ * Quick add section - mini modal
+ * @private
+ */
+async function _handleQuickAddSection() {
+  const contentHTML = `
+    <div>
+      <label class="label" for="quickSectionName">শাখার নাম *</label>
+      <input id="quickSectionName" type="text" class="form-input w-full" maxlength="50" placeholder="যেমন: A, B, C">
+    </div>
+  `;
+  
+  uiManager.showEditModal('নতুন শাখা যোগ করুন', contentHTML, async () => {
+    const name = document.getElementById('quickSectionName')?.value.trim();
+    
+    if (!name) {
+      uiManager.showToast('শাখার নাম লিখুন।', 'warning');
+      return;
+    }
+    
+    uiManager.showLoading('শাখা যোগ করা হচ্ছে...');
+    try {
+      const newSectionId = await dataService.addSection({ name });
+      await app.refreshAllData();
+      
+      // Reload section dropdown
+      await _populateSectionDropdown();
+      
+      // Auto-select newly created section
+      if (elements.studentSectionInput) {
+        elements.studentSectionInput.value = newSectionId;
+      }
+      
+      uiManager.hideModal(uiManager.elements.editModal);
+      uiManager.showToast('শাখা সফলভাবে যোগ করা হয়েছে।', 'success');
+    } catch (error) {
+      console.error('❌ Error adding section:', error);
+      uiManager.showToast(`শাখা যোগ করতে সমস্যা: ${error.message}`, 'error');
+    } finally {
+      uiManager.hideLoading();
+    }
+  });
+}
+
+/**
+ * Populate class dropdown
+ * @private
+ */
+async function _populateClassDropdown() {
+  if (!elements.studentClassInput) return;
+  
+  const classes = stateManager.get('classes') || [];
+  const options = classes.map(c => ({ value: c.id, text: helpers.ensureBengaliText(c.name) }))
+    .sort((a, b) => a.text.localeCompare(b.text, 'bn'));
+  
+  uiManager.populateSelect(elements.studentClassInput, options, 'নির্বাচন করুন');
+}
+
+/**
+ * Populate section dropdown
+ * @param {string} [classId] - Optional class ID to filter sections
+ * @private
+ */
+async function _populateSectionDropdown(classId = null) {
+  if (!elements.studentSectionInput) return;
+  
+  let sections = stateManager.get('sections') || [];
+  
+  // Filter sections by class if classId is provided
+  if (classId) {
+    sections = sections.filter(s => s.classId === classId);
+  }
+  
+  const options = sections.map(s => ({ value: s.id, text: helpers.ensureBengaliText(s.name) }))
+    .sort((a, b) => a.text.localeCompare(b.text, 'bn'));
+  
+  // Clear current selection
+  elements.studentSectionInput.value = '';
+  
+  if (sections.length === 0 && classId) {
+    // No sections for this class
+    uiManager.populateSelect(elements.studentSectionInput, [], 'এই ক্লাসের কোনো শাখা নেই');
+  } else {
+    uiManager.populateSelect(elements.studentSectionInput, options, 'নির্বাচন করুন');
+  }
 }
 
 // --- Helper Functions ---

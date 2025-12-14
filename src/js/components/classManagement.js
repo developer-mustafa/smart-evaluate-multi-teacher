@@ -68,19 +68,19 @@ class ClassManagement {
             <!-- Name Field -->
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">নাম *</label>
-              <input id="inputName" type="text" required class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="নাম লিখুন">
+              <input id="inputName" name="name" type="text" required class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="নাম লিখুন">
             </div>
 
             <!-- Code Field (for classes only) -->
             <div id="codeField">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">কোড</label>
-              <input id="inputCode" type="text" class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="যেমন: IX, X, XI">
+              <input id="inputCode" name="code" type="text" class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="যেমন: IX, X, XI">
             </div>
 
             <!-- Academic Session Field (for classes only) -->
             <div id="sessionField">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">সেশন</label>
-              <input id="inputSession" type="text" class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="যেমন: ২০২৪-২০২৫">
+              <input id="inputSession" name="session" type="text" class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="যেমন: ২০২৪-২০২৫">
             </div>
 
             <div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -253,12 +253,20 @@ class ClassManagement {
 
   async _handleSubmit(e) {
     e.preventDefault();
+    e.stopPropagation();
     
-    const name = document.getElementById('inputName').value.trim();
-    const code = document.getElementById('inputCode').value.trim();
-    const session = document.getElementById('inputSession').value.trim();
+    console.log('🔵 Form submit triggered');
+    
+    // Use FormData to properly read form values
+    const formData = new FormData(e.target);
+    const name = (formData.get('name') || '').trim();
+    const code = (formData.get('code') || '').trim();
+    const session = (formData.get('session') || '').trim();
+    
+    console.log('🔵 Form values (FormData):', { name, code, session });
     
     if (!name) {
+      console.log('❌ Name validation failed - name is empty!');
       uiManager.showToast('নাম প্রয়োজন', 'warning');
       return;
     }
