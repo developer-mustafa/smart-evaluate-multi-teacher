@@ -16,6 +16,8 @@ const elements = {
 
 // --- Filter State ---
 let activeFilters = {
+  class: 'all',
+  section: 'all',
   group: 'all',
   academicGroup: 'all',
   session: 'all',
@@ -31,6 +33,8 @@ const EXTRA_FILTERS = [
   { id: 'topic_learned_well', text: 'ভালো করে শিখেছি (+১০)', type: 'topic' },
   { id: 'homework_done', text: 'সপ্তাহে প্রতিদিন বাড়ির কাজ করেছি (+৫)', type: 'option' },
   { id: 'attendance_regular', text: 'সাপ্তাহিক নিয়মিত উপস্থিতি (+১০)', type: 'option' },
+  { id: 'problem_resolved', text: 'প্রবলেম রিজলভড', type: 'status' },
+  { id: 'has_problem', text: 'সমস্যা আছে', type: 'status' },
 ];
 
 export function init(dependencies) {
@@ -55,7 +59,9 @@ async function _ensureDataLoaded() {
           dataService.loadStudents(),
           dataService.loadGroups(),
           dataService.loadEvaluations(),
-          dataService.loadTasks()
+          dataService.loadTasks(),
+          dataService.loadClasses(),
+          dataService.loadSections()
       ]);
       console.log('✅ Student Filter data loaded.');
       // Re-render to show data that might have been missing (only if page is rendered)
@@ -98,7 +104,27 @@ export function render() {
         </div>
         
         <!-- Primary Filters Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
+          <!-- Class -->
+          <div class="relative">
+            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">ক্লাস</label>
+            <div class="relative">
+               <select id="sfClass" class="w-full form-select rounded-lg border-gray-200 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                <option value="all">সকল ক্লাস</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Section -->
+          <div class="relative">
+            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">শাখা</label>
+            <div class="relative">
+               <select id="sfSection" class="w-full form-select rounded-lg border-gray-200 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                <option value="all">সকল শাখা</option>
+              </select>
+            </div>
+          </div>
+
           <!-- Group -->
           <div class="relative">
             <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">গ্রুপ</label>
@@ -247,11 +273,14 @@ export function render() {
                 <th class="px-6 py-3 font-semibold tracking-wider">#</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">নাম</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">রোল</th>
+                <th class="px-6 py-3 font-semibold tracking-wider">ক্লাস</th>
+                <th class="px-6 py-3 font-semibold tracking-wider">শাখা</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">লিঙ্গ</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">গ্রুপ</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">একাডেমিক গ্রুপ</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">সেশন</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">দায়িত্ব</th>
+                <th class="px-6 py-3 font-semibold tracking-wider">অবস্থা</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">যোগাযোগ</th>
                 <th class="px-6 py-3 text-center font-semibold tracking-wider" id="sfScoreHeader">গড় ফলাফল</th>
               </tr>
@@ -287,6 +316,22 @@ function _populateFilterOptions() {
   const groups = stateManager.get('groups') || [];
   const students = stateManager.get('students') || [];
   const tasks = stateManager.get('tasks') || [];
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+
+  // Classes
+  const classSelect = document.getElementById('sfClass');
+  if (classSelect) {
+    classes.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      classSelect.appendChild(opt);
+    });
+  }
+
+  // Sections (Initial Load - All or Filtered if class selected)
+  _populateSections(sections);
 
   // Groups
   const groupSelect = document.getElementById('sfGroup');
@@ -336,6 +381,35 @@ function _populateFilterOptions() {
   }
 }
 
+function _populateSections(sections, classId = 'all') {
+  const sectionSelect = document.getElementById('sfSection');
+  if (!sectionSelect) return;
+
+  // Save current selection
+  const currentVal = sectionSelect.value;
+
+  sectionSelect.innerHTML = '<option value="all">সকল শাখা</option>';
+  
+  const filteredSections = classId === 'all' 
+    ? sections 
+    : sections.filter(s => s.classId === classId);
+
+  filteredSections.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    sectionSelect.appendChild(opt);
+  });
+
+  // Restore selection if possible, otherwise reset
+  if (classId === 'all' || sections.find(s => s.id === currentVal && s.classId === classId)) {
+      sectionSelect.value = currentVal;
+  } else {
+      sectionSelect.value = 'all';
+      activeFilters.section = 'all'; // Reset state too
+  }
+}
+
 function _attachEventListeners() {
   const container = elements.container;
   
@@ -358,7 +432,7 @@ function _attachEventListeners() {
   }
 
   // Selects
-  ['sfGroup', 'sfAcademic', 'sfSession', 'sfGender', 'sfRole', 'sfAssignment'].forEach(id => {
+  ['sfClass', 'sfSection', 'sfGroup', 'sfAcademic', 'sfSession', 'sfGender', 'sfRole', 'sfAssignment'].forEach(id => {
     const el = container.querySelector(`#${id}`);
     if (el) {
       el.addEventListener('change', (e) => {
@@ -369,6 +443,13 @@ function _attachEventListeners() {
         if (stateKey === 'academic') stateKey = 'academicGroup';
 
         activeFilters[stateKey] = e.target.value;
+
+        // Cascading Logic for Class -> Section
+        if (id === 'sfClass') {
+            const sections = stateManager.get('sections') || [];
+            _populateSections(sections, e.target.value);
+        }
+
         _applyFiltersAndRender();
       });
     }
@@ -402,7 +483,7 @@ function _attachEventListeners() {
       };
       
       // Reset UI controls
-      ['sfGroup', 'sfAcademic', 'sfSession', 'sfGender', 'sfRole', 'sfAssignment'].forEach(id => {
+      ['sfClass', 'sfSection', 'sfGroup', 'sfAcademic', 'sfSession', 'sfGender', 'sfRole', 'sfAssignment'].forEach(id => {
         const el = container.querySelector(`#${id}`);
         if (el) el.value = 'all';
       });
@@ -433,16 +514,20 @@ function _attachEventListeners() {
       const evaluations = stateManager.get('evaluations') || [];
       const groups = stateManager.get('groups') || [];
       const tasks = stateManager.get('tasks') || [];
+      const classes = stateManager.get('classes') || [];
+      const sections = stateManager.get('sections') || [];
       
       const groupMap = new Map(groups.map(g => [g.id, g]));
       const taskMap = new Map(tasks.map(t => [t.id, t]));
+      const classesMap = new Map(classes.map(c => [c.id, c]));
+      const sectionsMap = new Map(sections.map(s => [s.id, s]));
       
       // Prepare Extra Filter Map
       const extraMap = new Map(EXTRA_FILTERS.map(f => [f.id, f.text]));
       extraMap.set('unevaluated', 'অমূল্যায়িত শিক্ষার্থী');
       extraMap.set('absent_mcq', 'MCQ নম্বর নেই');
 
-      generateStudentListPDF(currentFilteredStudents, activeFilters, evaluations, groupMap, extraMap, taskMap);
+      generateStudentListPDF(currentFilteredStudents, activeFilters, evaluations, groupMap, extraMap, taskMap, classesMap, sectionsMap);
     });
   }
 }
@@ -481,11 +566,18 @@ function _applyFiltersAndRender() {
   const students = stateManager.get('students') || [];
   const groups = stateManager.get('groups') || [];
   const evaluations = stateManager.get('evaluations') || [];
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  
   const groupMap = new Map(groups.map(g => [g.id, g]));
+  const classesMap = new Map(classes.map(c => [c.id, c]));
+  const sectionsMap = new Map(sections.map(s => [s.id, s]));
 
   // 1. Filter
   const filtered = students.filter(s => {
     // Basic Filters
+    if (activeFilters.class !== 'all' && s.classId !== activeFilters.class) return false;
+    if (activeFilters.section !== 'all' && s.sectionId !== activeFilters.section) return false;
     if (activeFilters.group !== 'all' && s.groupId !== activeFilters.group) return false;
     if (activeFilters.academicGroup !== 'all' && (s.academicGroup || '').trim() !== activeFilters.academicGroup) return false;
     if (activeFilters.session !== 'all' && s.session !== activeFilters.session) return false;
@@ -540,6 +632,40 @@ function _applyFiltersAndRender() {
                  const hasMissing = studentEvaluations.some(e => !e.mcqScore);
                  if (hasMissing) return true;
                  return false;
+             }
+         } else if (filterId === 'problem_resolved') {
+             if (activeFilters.assignment !== 'all') {
+                 const targetEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+                 if (!targetEval) return false;
+                 return targetEval.problemRecovered === true;
+             } else {
+                 // Problem Resolved: Has recovered AND has NO active problems
+                 const hasResolved = studentEvaluations.some(e => e.problemRecovered === true);
+                 if (!hasResolved) return false;
+
+                 const hasActiveProblem = studentEvaluations.some(e => {
+                     const topic = e.additionalCriteria?.topic;
+                     const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
+                     return isProblematic && !e.problemRecovered;
+                 });
+                 if (hasActiveProblem) return false;
+             }
+         } else if (filterId === 'has_problem') {
+             if (activeFilters.assignment !== 'all') {
+                 const targetEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+                 if (!targetEval) return false;
+                 
+                 const topic = targetEval.additionalCriteria?.topic;
+                 const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
+                 return isProblematic && !targetEval.problemRecovered;
+             } else {
+                 // Has Problem: (topic_understood OR topic_none) AND !problemRecovered
+                 const hasProblem = studentEvaluations.some(e => {
+                     const topic = e.additionalCriteria?.topic;
+                     const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
+                     return isProblematic && !e.problemRecovered;
+                 });
+                 if (!hasProblem) return false;
              }
          } else {
              // Check for specific criteria in ANY evaluation
@@ -626,6 +752,8 @@ function _applyFiltersAndRender() {
       tr.className = 'bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer';
       
       const groupName = groupMap.get(s.groupId)?.name || '-';
+      const className = classesMap.get(s.classId)?.name || '-';
+      const sectionName = sectionsMap.get(s.sectionId)?.name || '-';
       
       // Calculate Average & Specific Score
       const studentEvaluations = [];
@@ -665,15 +793,55 @@ function _applyFiltersAndRender() {
         genderDisplay = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">${gender}</span>`;
       }
 
+      // Status Calculation
+      let statusDisplay = '-';
+      
+      let hasProblem = false;
+      let hasResolved = false;
+
+      if (activeFilters.assignment !== 'all') {
+          const assignEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+          if (assignEval) {
+              const topic = assignEval.additionalCriteria?.topic;
+              const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
+              if (isProblematic && !assignEval.problemRecovered) hasProblem = true;
+              if (assignEval.problemRecovered) hasResolved = true;
+          }
+      } else {
+          // Check all evaluations
+          hasProblem = studentEvaluations.some(e => {
+              const topic = e.additionalCriteria?.topic;
+              const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
+              return isProblematic && !e.problemRecovered;
+          });
+          
+          if (!hasProblem) {
+              hasResolved = studentEvaluations.some(e => e.problemRecovered === true);
+          }
+      }
+
+      if (hasProblem) {
+          statusDisplay = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
+            <i class="fas fa-exclamation-circle"></i> সমস্যা আছে
+          </span>`;
+      } else if (hasResolved) {
+          statusDisplay = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+            <i class="fas fa-check-circle"></i> রিজলভড
+          </span>`;
+      }
+
       tr.innerHTML = `
         <td class="px-6 py-3 font-medium text-gray-500 dark:text-gray-400">${helpers.convertToBanglaNumber(index + 1)}</td>
         <td class="px-6 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">${s.name}</td>
         <td class="px-6 py-3">${helpers.convertToBanglaNumber(s.roll)}</td>
+        <td class="px-6 py-3 whitespace-nowrap">${className}</td>
+        <td class="px-6 py-3 whitespace-nowrap">${sectionName}</td>
         <td class="px-6 py-3">${genderDisplay}</td>
         <td class="px-6 py-3 whitespace-nowrap">${groupName}</td>
         <td class="px-6 py-3 whitespace-nowrap">${_renderAcademicBadge(s.academicGroup)}</td>
         <td class="px-6 py-3">${s.session || '-'}</td>
         <td class="px-6 py-3 whitespace-nowrap">${_renderRoleBadge(s.role)}</td>
+        <td class="px-6 py-3 whitespace-nowrap">${statusDisplay}</td>
         <td class="px-6 py-3 text-xs text-gray-500 dark:text-gray-400">${s.contact || '-'}</td>
         <td class="px-6 py-3 text-center font-medium">${avgDisplay}</td>
         ${activeFilters.assignment !== 'all' ? `<td class="px-6 py-3 text-center ${specificClass}">${specificDisplay}</td>` : ''}

@@ -82,6 +82,8 @@
       students: Array.isArray(s.students) ? s.students : [],
       tasks: Array.isArray(s.tasks) ? s.tasks : [],
       evaluations: Array.isArray(s.evaluations) ? s.evaluations : [],
+      classes: Array.isArray(s.classes) ? s.classes : [],
+      sections: Array.isArray(s.sections) ? s.sections : [],
     };
   }
 
@@ -178,6 +180,32 @@
         const meta = byId('gdmAssignMeta');   // <div> or <span> for meta text
 
         if (sel && tbody) {
+          // Inject headers if not present
+          const theadRow = tbody.closest('table')?.querySelector('thead tr');
+          if (theadRow && !theadRow.querySelector('.gdm-dynamic-header')) {
+            const thClass = document.createElement('th');
+            thClass.className = 'px-3 py-2 text-center whitespace-nowrap gdm-dynamic-header';
+            thClass.textContent = 'ক্লাস';
+            
+            const thSection = document.createElement('th');
+            thSection.className = 'px-3 py-2 text-center whitespace-nowrap gdm-dynamic-header';
+            thSection.textContent = 'শাখা';
+
+            // Insert after Name column (assuming Name is 2nd column, index 1? No, let's check existing headers)
+            // Existing headers: Roll, Badge, Name, ...
+            // We want to insert after Name.
+            // Let's assume Name is the 3rd column (index 2).
+            // Or just insert at specific position.
+            // Let's inspect the row structure in renderAssignTable:
+            // Roll, Badge, Name, Class, Section, ...
+            // So we need to insert at index 3 and 4.
+            
+            if (theadRow.children.length >= 3) {
+               theadRow.insertBefore(thSection, theadRow.children[3]);
+               theadRow.insertBefore(thClass, theadRow.children[3]);
+            }
+          }
+
           const assigns = perEval.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
           sel.innerHTML = assigns.map((e, idx) => {
@@ -207,6 +235,9 @@
             if (elAA) elAA.textContent = ((e.avgPct || 0).toFixed(1) + '%');
 
             const scores = e.ev?.scores || {};
+            const classesMap = new Map(state.classes.map(c => [c.id, c]));
+            const sectionsMap = new Map(state.sections.map(s => [s.id, s]));
+
             const rows = state.students
               .filter(s => String(s.groupId) === String(groupId))
               .map(s => {
@@ -229,6 +260,8 @@
 
                 const agName = s.academicGroup || s.academic_group || s.academic || '';
                 const agClass = acadBadgeClass(agName);
+                const className = classesMap.get(s.classId)?.name || '-';
+                const sectionName = sectionsMap.get(s.sectionId)?.name || '-';
 
                 return {
                   roll: s.roll || s.studentRoll || s.classRoll || s.rollNumber || null,
@@ -236,6 +269,8 @@
                   name: s.name || s.id,
                   agName,
                   agClass,
+                  className,
+                  sectionName,
                   agName,
                   agClass,
                   taskScore, teamScore, additional, mcq, total, pct, comment,
@@ -262,6 +297,8 @@
                   <span class="font-medium">${escHtml(r.name)}</span>
                   ${r.agName ? `<span class="ml-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${r.agClass}"><i class="fas fa-graduation-cap"></i>${escHtml(r.agName)}</span>` : ''}
                 </td>
+                <td class="px-3 py-2 whitespace-nowrap text-center">${escHtml(r.className)}</td>
+                <td class="px-3 py-2 whitespace-nowrap text-center">${escHtml(r.sectionName)}</td>
                 <td class="px-3 py-2 text-right">${r.taskScore.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right">${r.teamScore.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right">${r.additional.toFixed(2)}</td>

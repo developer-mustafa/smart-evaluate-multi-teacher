@@ -2759,7 +2759,12 @@ async function generateSelectedGroupPDF() {
       return;
     }
 
-    await helpers.pdfGenerator.generateSingleGroupAnalysisPDF(selectedGroupData, uiManager);
+    const classes = stateManager.get('classes') || [];
+    const sections = stateManager.get('sections') || [];
+    const classesMap = new Map(classes.map(c => [c.id, c]));
+    const sectionsMap = new Map(sections.map(s => [s.id, s]));
+
+    await helpers.pdfGenerator.generateSingleGroupAnalysisPDF(selectedGroupData, uiManager, classesMap, sectionsMap);
   } catch (error) {
     console.error('Error generating selected group PDF:', error);
     uiManager.showToast('PDF তৈরি করতে সমস্যা হয়েছে।', 'error');
@@ -2794,6 +2799,11 @@ async function generateGroupWiseFullDetailsPDF(filterTaskId = 'all', filterGroup
       return;
     }
 
+    const classes = stateManager.get('classes') || [];
+    const sections = stateManager.get('sections') || [];
+    const classesMap = new Map(classes.map(c => [c.id, c]));
+    const sectionsMap = new Map(sections.map(s => [s.id, s]));
+
     await helpers.pdfGenerator.generateGroupWiseFullDetailsPDF(
       groups,
       students,
@@ -2801,7 +2811,9 @@ async function generateGroupWiseFullDetailsPDF(filterTaskId = 'all', filterGroup
       evaluations,
       uiManager,
       filterTaskId,
-      filterGroupId
+      filterGroupId,
+      classesMap,
+      sectionsMap
     );
   } catch (error) {
     console.error('Error generating group wise full details PDF:', error);

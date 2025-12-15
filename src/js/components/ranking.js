@@ -16,6 +16,8 @@ const cachedRankingData = {
   rankedGroups: [],
   groups: [],
   students: [],
+  classes: [],
+  sections: [],
 };
 
 // Ranking criteria
@@ -249,7 +251,7 @@ export function render() {
 
   uiManager.showLoading('র‍্যাঙ্কিং গণনা করা হচ্ছে...');
   try {
-    const { students, evaluations, tasks, groups } = stateManager.getState();
+    const { students, evaluations, tasks, groups, classes, sections } = stateManager.getState();
     if (!students || !evaluations || !tasks) {
       uiManager.displayEmptyMessage(elements.studentRankingListContainer, 'র‍্যাঙ্কিং গণনার জন্য ডেটা লোড হচ্ছে...');
       return;
@@ -262,11 +264,13 @@ export function render() {
     cachedRankingData.rankedGroups = rankedGroups;
     cachedRankingData.groups = groups || [];
     cachedRankingData.students = students || [];
+    cachedRankingData.classes = classes || [];
+    cachedRankingData.sections = sections || [];
     studentSearchState.name = '';
     studentSearchState.roll = '';
     uiTabState.active = 'students'; // default active tab
 
-    _renderRankingList(rankedStudents, rankedGroups, groups || [], students);
+    _renderRankingList(rankedStudents, rankedGroups, groups || [], students, classes || [], sections || []);
   } catch (error) {
     console.error('❌ Error rendering student ranking:', error);
     uiManager.displayEmptyMessage(elements.studentRankingListContainer, 'র‍্যাঙ্কিং লোড করতে একটি ত্রুটি ঘটেছে।');
@@ -455,7 +459,7 @@ function _calculateGroupRankings(students, evaluations, groups) {
 
 /* ---------------- Render (Tabs + Compact Cards) ---------------- */
 
-function _renderRankingList(rankedStudents, rankedGroups, groups, students, options = {}) {
+function _renderRankingList(rankedStudents, rankedGroups, groups, students, classes, sections, options = {}) {
   if (!elements.studentRankingListContainer) return;
 
   const onlyUpdateStudents = Boolean(options?.onlyUpdateStudents);
@@ -466,6 +470,8 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, opti
   }
 
   const groupsMap = new Map((groups || []).map((g) => [g.id, g.name])); // for student group name
+  const classesMap = new Map((classes || []).map((c) => [c.id, c.name]));
+  const sectionsMap = new Map((sections || []).map((s) => [s.id, s.name]));
 
   const formatPct2 = (n) => {
     const str = (Number(n) || 0).toFixed(2);
@@ -532,7 +538,10 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, opti
             const palette = _getScorePalette(item.efficiency);
 
             const groupName = groupsMap.get(s.groupId) || 'গ্রুপ নেই';
-            const idLine = `রোল: ${toBn(s.roll || '—')} · গ্রুপ: ${_escapeHtml(groupName)}`;
+            const className = classesMap.get(s.classId) || '';
+            const sectionName = sectionsMap.get(s.sectionId) || '';
+            
+            const idLine = `রোল: ${toBn(s.roll || '—')} · ক্লাস: ${className} · শাখা: ${sectionName} · গ্রুপ: ${_escapeHtml(groupName)}`;
 
             // Badges: Academic Branch + Role (soft colors)
             const branchMeta = _branchBadgeMeta(s.academicGroup);
@@ -670,6 +679,8 @@ function _attachTabHandlers() {
         cachedRankingData.rankedGroups,
         cachedRankingData.groups,
         cachedRankingData.students,
+        cachedRankingData.classes,
+        cachedRankingData.sections,
         { onlyUpdateStudents: false }
       );
     });
@@ -718,6 +729,8 @@ function _rerenderStudentCardsWithFilters() {
     cachedRankingData.rankedGroups,
     cachedRankingData.groups,
     cachedRankingData.students,
+    cachedRankingData.classes,
+    cachedRankingData.sections,
     { onlyUpdateStudents: true }
   );
 }

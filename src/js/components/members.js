@@ -719,6 +719,11 @@ function _renderStudentsList() {
   const groupMap = new Map(groups.map((g) => [g.id, g]));
   const groupColors = _getGroupColorClasses(groups);
 
+  const classes = stateManager.get('classes') || [];
+  const classesMap = new Map(classes.map((c) => [c.id, c]));
+  const sectionsData = stateManager.get('sections') || [];
+  const sectionsMap = new Map(sectionsData.map((s) => [s.id, s]));
+
   const groupedStudents = new Map();
   filteredStudents.forEach((student) => {
     const key = student.groupId || 'unassigned';
@@ -780,6 +785,10 @@ function _renderStudentsList() {
             helpers?.ensureBengaliText && typeof helpers.ensureBengaliText === 'function'
               ? helpers.ensureBengaliText(student.academicGroup || '')
               : student.academicGroup || '';
+          
+          const className = classesMap.get(student.classId)?.name || '';
+          const sectionName = sectionsMap.get(student.sectionId)?.name || '';
+
           const contactMarkup = student.contact
             ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">যোগাযোগ: ${student.contact}</div>`
             : '';
@@ -802,6 +811,8 @@ function _renderStudentsList() {
                 }</span>
               </div>
               <div class="mt-3 space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                <p><span class="font-medium text-gray-700 dark:text-gray-200">ক্লাস:</span> ${className || 'N/A'}</p>
+                <p><span class="font-medium text-gray-700 dark:text-gray-200">শাখা:</span> ${sectionName || 'N/A'}</p>
                 <p><span class="font-medium text-gray-700 dark:text-gray-200">সেশন:</span> ${session || 'N/A'}</p>
                 <p><span class="font-medium text-gray-700 dark:text-gray-200">লিঙ্গ:</span> ${gender || 'N/A'}</p>
                 <p><span class="font-medium text-gray-700 dark:text-gray-200">একাডেমিক গ্রুপ:</span> ${
@@ -880,6 +891,11 @@ function _renderStudentCardsList() {
   const groupsMap = new Map(groups.map((g) => [g.id, g]));
   const groupColors = _getGroupColorClasses(groups);
 
+  const classes = stateManager.get('classes') || [];
+  const classesMap = new Map(classes.map((c) => [c.id, c]));
+  const sectionsData = stateManager.get('sections') || [];
+  const sectionsMap = new Map(sectionsData.map((s) => [s.id, s]));
+
   const cards = filteredStudents
     .map((student) => {
       const groupInfo = groupsMap.get(student.groupId);
@@ -896,6 +912,8 @@ function _renderStudentCardsList() {
       const session = _formatLabel(student.session || 'N/A');
       const gender = _formatLabel(student.gender || 'N/A');
       const academicGroup = _formatLabel(student.academicGroup || 'N/A');
+      const className = _formatLabel(classesMap.get(student.classId)?.name || 'N/A');
+      const sectionName = _formatLabel(sectionsMap.get(student.sectionId)?.name || 'N/A');
 
       return `
   <article
@@ -950,16 +968,24 @@ function _renderStudentCardsList() {
       <!-- Info grid (compact, non-overlapping) -->
       <!-- Info grid (compact, non-overlapping) -->
       <section class="w-full" aria-label="Student details">
-        <div class="flex items-center justify-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 px-3 py-1.5">
-          <div class="flex items-center gap-1.5">
-            <span class="text-[11px] text-gray-500 dark:text-gray-400">সেশন:</span>
-            <span class="text-[11px] font-bold text-gray-700 dark:text-gray-200">${session}</span>
-          </div>
-          <div class="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-          <div class="flex items-center gap-1.5">
-            <span class="text-[11px] text-gray-500 dark:text-gray-400">লিঙ্গ:</span>
-            <span class="text-[11px] font-bold text-gray-700 dark:text-gray-200">${gender}</span>
-          </div>
+        <div class="flex flex-col gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 px-3 py-2">
+           <div class="flex justify-between items-center text-[11px]">
+              <span class="text-gray-500 dark:text-gray-400">ক্লাস:</span>
+              <span class="font-bold text-gray-700 dark:text-gray-200">${className}</span>
+           </div>
+           <div class="flex justify-between items-center text-[11px]">
+              <span class="text-gray-500 dark:text-gray-400">শাখা:</span>
+              <span class="font-bold text-gray-700 dark:text-gray-200">${sectionName}</span>
+           </div>
+           <div class="h-px w-full bg-gray-200 dark:bg-gray-700 my-1"></div>
+           <div class="flex justify-between items-center text-[11px]">
+              <span class="text-gray-500 dark:text-gray-400">সেশন:</span>
+              <span class="font-bold text-gray-700 dark:text-gray-200">${session}</span>
+           </div>
+           <div class="flex justify-between items-center text-[11px]">
+              <span class="text-gray-500 dark:text-gray-400">লিঙ্গ:</span>
+              <span class="font-bold text-gray-700 dark:text-gray-200">${gender}</span>
+           </div>
         </div>
       </section>
 

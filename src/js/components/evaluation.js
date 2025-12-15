@@ -236,6 +236,11 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
 
   currentTaskBreakdown = breakdown;
 
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  const classesMap = new Map(classes.map(c => [c.id, c]));
+  const sectionsMap = new Map(sections.map(s => [s.id, s]));
+
   let formHtml = `
     <form id="dynamicEvaluationForm" class="card card-body space-y-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 dark:border-gray-600">
@@ -295,6 +300,9 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
     // Determine if checkbox should be visible initially
     const showProblemRecovered = topicChoice === 'topic_none' || topicChoice === 'topic_understood';
 
+    const className = classesMap.get(student.classId)?.name || '-';
+    const sectionName = sectionsMap.get(student.sectionId)?.name || '-';
+
     formHtml += `
             <tr class="${rowClass} border-b dark:border-gray-600 student-row" data-student-id="${student.id}">
                 <td class="td font-medium text-gray-900 dark:text-white">${helpers.convertToBanglaNumber(
@@ -302,6 +310,7 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                 )}</td>
                 <td class="td">
                     <div class="font-semibold text-gray-900 dark:text-white">${helpers.ensureBengaliText ? helpers.ensureBengaliText(student.name || '') : student.name || ''}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${className} • ${sectionName}</div>
                     ${_renderStudentRoleBadge(student.role)}
                     
                     <!-- Problem Recovered Checkbox Container -->

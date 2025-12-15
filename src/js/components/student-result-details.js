@@ -109,6 +109,8 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
       evaluations: Array.isArray(s.evaluations) ? s.evaluations : [],
       tasks: Array.isArray(s.tasks) ? s.tasks : [],
       groups: Array.isArray(s.groups) ? s.groups : [],
+      classes: Array.isArray(s.classes) ? s.classes : [],
+      sections: Array.isArray(s.sections) ? s.sections : [],
     };
   }
 
@@ -123,6 +125,8 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
       ['groups', 'loadGroups'],
       ['tasks', 'loadTasks'],
       ['evaluations', 'loadEvaluations'],
+      ['classes', 'loadClasses'],
+      ['sections', 'loadSections'],
     ].map(async ([key, loaderName]) => {
       if (Array.isArray(state[key]) && state[key].length) return;
       const loader = dataService[loaderName];
@@ -255,7 +259,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     if (el) el.innerHTML = html;
   }
 
-  function renderHeader(student, groupName, evals, avgPct, avgTotal, rankLabel) {
+  function renderHeader(student, groupName, evals, avgPct, avgTotal, rankLabel, className, sectionName) {
     const avEl = byId('sdmAvatar');
     if (avEl) {
       avEl.src = student.photoURL || student.avatar || 'images/smart.png';
@@ -281,6 +285,8 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     setText('sdmRoll', student.roll ? `রোল: ${bn(student.roll)}` : '');
 
     setText('sdmGroup', groupName ? `গ্রুপ: ${groupName}` : '');
+    setText('sdmClass', className ? `ক্লাস: ${className}` : '');
+    setText('sdmSection', sectionName ? `শাখা: ${sectionName}` : '');
     setText('sdmAcademic', student.academicGroup ? `শিক্ষা বিভাগ: ${student.academicGroup}` : '');
     setText('sdmSession', student.session ? `সেশন: ${student.session}` : '');
     const hasContact = Boolean(student.email) || Boolean(student.contact);
@@ -288,6 +294,8 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
 
     // Clean Bengali labels (override)
     setText('sdmGroup', groupName ? `গ্রুপ: ${groupName}` : '');
+    setText('sdmClass', className ? `ক্লাস: ${className}` : '');
+    setText('sdmSection', sectionName ? `শাখা: ${sectionName}` : '');
     setText('sdmAcademic', student.academicGroup ? `শিক্ষা বিভাগ: ${student.academicGroup}` : '');
     setText('sdmSession', student.session ? `সেশন: ${student.session}` : '');
     setText('sdmContact', (Boolean(student.email)||Boolean(student.contact)) ? `যোগাযোগ: ${student.email || ''} ${student.contact || ''}` : '');
@@ -742,6 +750,8 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
       groups: Array.isArray(providedState.groups) && providedState.groups.length
         ? providedState.groups
         : fallbackState.groups,
+      classes: Array.isArray(providedState.classes) && providedState.classes.length ? providedState.classes : fallbackState.classes,
+      sections: Array.isArray(providedState.sections) && providedState.sections.length ? providedState.sections : fallbackState.sections,
     };
     await ensureStateCollections(state);
     let student = null;
@@ -767,6 +777,10 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
       options.groupName ||
       state.groups.find((g) => normalizeId(g?.id) === normalizeId(student.groupId))?.name ||
       '';
+    
+    const className = state.classes.find(c => normalizeId(c?.id) === normalizeId(student.classId))?.name || '';
+    const sectionName = state.sections.find(s => normalizeId(s?.id) === normalizeId(student.sectionId))?.name || '';
+
     const evals = computeEvalsForStudent(targetId, state);
 
     const count = Math.max(1, evals.length);
@@ -775,7 +789,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     const avgTotal = sums.total / count;
     const rankLabel = computeRankLabel(studentId, state);
 
-    renderHeader(student, groupName, evals, avgPct, avgTotal, rankLabel);
+    renderHeader(student, groupName, evals, avgPct, avgTotal, rankLabel, className, sectionName);
     renderTable(evals);
     renderChart(evals);
 

@@ -117,13 +117,15 @@ export async function generateGroupAnalysisPDF(data, uiManager) {
 /**
  * Generates "All Students Data Report PDF"
  */
-export async function generateAllStudentsPDF(students, groupsMap, uiManager) {
+export async function generateAllStudentsPDF(students, groupsMap, uiManager, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   
   const rows = students.map((s, index) => `
     <tr class="border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
       <td class="py-2 px-2 text-center">${_bn(s.roll)}</td>
       <td class="py-2 px-2 text-left font-medium">${s.name}</td>
+      <td class="py-2 px-2 text-center">${classesMap?.get(s.classId)?.name || '-'}</td>
+      <td class="py-2 px-2 text-center">${sectionsMap?.get(s.sectionId)?.name || '-'}</td>
       <td class="py-2 px-2 text-left">${groupsMap.get(s.groupId) || '-'}</td>
       <td class="py-2 px-2 text-center">${s.academicGroup || '-'}</td>
       <td class="py-2 px-2 text-center">${s.gender || '-'}</td>
@@ -144,6 +146,8 @@ export async function generateAllStudentsPDF(students, groupsMap, uiManager) {
           <tr class="bg-indigo-600 text-white">
             <th class="py-2 px-2 text-center font-semibold w-16">রোল</th>
             <th class="py-2 px-2 text-left font-semibold">নাম</th>
+            <th class="py-2 px-2 text-center font-semibold">ক্লাস</th>
+            <th class="py-2 px-2 text-center font-semibold">শাখা</th>
             <th class="py-2 px-2 text-left font-semibold">গ্রুপ</th>
             <th class="py-2 px-2 text-center font-semibold">বিভাগ</th>
             <th class="py-2 px-2 text-center font-semibold">লিঙ্গ</th>
@@ -168,7 +172,7 @@ export async function generateAllStudentsPDF(students, groupsMap, uiManager) {
 /**
  * Generates "All Groups Student Detailed Data Group-wise Download PDF"
  */
-export async function generateGroupWiseStudentsPDF(groups, students, uiManager) {
+export async function generateGroupWiseStudentsPDF(groups, students, uiManager, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   
   let contentHtml = '';
@@ -181,6 +185,8 @@ export async function generateGroupWiseStudentsPDF(groups, students, uiManager) 
       <tr class="border-b border-gray-100 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
         <td class="py-1 px-2 text-center">${_bn(s.roll)}</td>
         <td class="py-1 px-2 text-left">${s.name}</td>
+        <td class="py-1 px-2 text-center">${classesMap?.get(s.classId)?.name || '-'}</td>
+        <td class="py-1 px-2 text-center">${sectionsMap?.get(s.sectionId)?.name || '-'}</td>
         <td class="py-1 px-2 text-center">${s.role || '-'}</td>
         <td class="py-1 px-2 text-center">${s.contact || '-'}</td>
       </tr>
@@ -196,6 +202,8 @@ export async function generateGroupWiseStudentsPDF(groups, students, uiManager) 
             <tr class="bg-purple-100 text-purple-900">
               <th class="py-1 px-2 text-center w-16">রোল</th>
               <th class="py-1 px-2 text-left">নাম</th>
+              <th class="py-1 px-2 text-center">ক্লাস</th>
+              <th class="py-1 px-2 text-center">শাখা</th>
               <th class="py-1 px-2 text-center">দায়িত্ব</th>
               <th class="py-1 px-2 text-center">মোবাইল</th>
             </tr>
@@ -448,7 +456,7 @@ export async function generateAllGroupsResultPDF(groups, students, tasks, evalua
  * Generates "Assignment Result PDF"
  * Filters by assignment and shows detailed breakdown for each group for that assignment.
  */
-export async function generateAssignmentResultPDF(assignmentIndex, groups, students, tasks, evaluations, uiManager) {
+export async function generateAssignmentResultPDF(assignmentIndex, groups, students, tasks, evaluations, uiManager, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   let contentHtml = '';
   
@@ -484,6 +492,8 @@ export async function generateAssignmentResultPDF(assignmentIndex, groups, stude
       <tr class="border-b border-gray-100">
         <td class="px-2 py-1 text-center">${_bn(r.roll)}</td>
         <td class="px-2 py-1 font-medium">${r.name}</td>
+        <td class="px-2 py-1 text-center text-xs">${classesMap?.get(r.classId)?.name || '-'}</td>
+        <td class="px-2 py-1 text-center text-xs">${sectionsMap?.get(r.sectionId)?.name || '-'}</td>
         <td class="px-2 py-1 text-xs text-gray-500">${_prettyRoleBn(r.role)}</td>
         <td class="px-2 py-1 text-right font-bold">${r.total.toFixed(2)}</td>
         <td class="px-2 py-1 text-right"><span class="px-1 py-0.5 rounded text-xs ${_pctBadgeClass(r.pct)}">${r.pct.toFixed(1)}%</span></td>
@@ -520,6 +530,8 @@ export async function generateAssignmentResultPDF(assignmentIndex, groups, stude
             <tr>
               <th class="px-2 py-1 text-center w-12">Roll</th>
               <th class="px-2 py-1 text-left">Name</th>
+              <th class="px-2 py-1 text-center">Class</th>
+              <th class="px-2 py-1 text-center">Section</th>
               <th class="px-2 py-1 text-left">Role</th>
               <th class="px-2 py-1 text-right">Total</th>
               <th class="px-2 py-1 text-right">%</th>
@@ -553,7 +565,7 @@ export async function generateAssignmentResultPDF(assignmentIndex, groups, stude
  * Generates "Group Wise Full Details Result PDF"
  * Professional report with detailed metrics for every student in every group.
  */
-export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, evaluations, uiManager, filterTaskId = 'all', filterGroupId = null) {
+export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, evaluations, uiManager, filterTaskId = 'all', filterGroupId = null, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   let contentHtml = '';
 
@@ -675,6 +687,8 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
           ${s.name}
           <div class="text-[10px] text-gray-500">${s.academicGroup || ''}</div>
         </td>
+        <td class="px-2 py-2 text-center border-r border-gray-100 text-xs">${classesMap?.get(s.classId)?.name || '-'}</td>
+        <td class="px-2 py-2 text-center border-r border-gray-100 text-xs">${sectionsMap?.get(s.sectionId)?.name || '-'}</td>
         <td class="px-2 py-2 text-center border-r border-gray-100 whitespace-nowrap">
           <span class="px-2 py-0.5 rounded-full text-[10px] border ${_roleBadgeClass(s.role)}">
             ${_prettyRoleBn(s.role) || 'সদস্য'}
@@ -747,6 +761,8 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
             <tr>
               <th class="px-2 py-3 text-center font-bold w-[6%] border-r border-indigo-500/30">রোল</th>
               <th class="px-3 py-3 text-left font-bold w-[20%] border-r border-indigo-500/30">নাম</th>
+              <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">ক্লাস</th>
+              <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">শাখা</th>
               <th class="px-2 py-3 text-center font-bold w-[12%] border-r border-indigo-500/30 whitespace-nowrap">দায়িত্ব</th>
               <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">অংশগ্রহণ</th>
               ${!isSingleTask ? '<th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">মূল্যায়ন</th>' : ''}
@@ -857,7 +873,7 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
  * Generates "Single Group Analysis Dashboard PDF"
  * Replicates the dashboard view in a print-friendly format.
  */
-export async function generateSingleGroupAnalysisPDF(groupData, uiManager) {
+export async function generateSingleGroupAnalysisPDF(groupData, uiManager, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   const metric = groupData.metric || {};
   const groupName = metric.groupName || 'Group';
@@ -887,7 +903,6 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager) {
   `;
 
   // 2. Members Table
-  // 2. Members Table
   const memberRows = members.map((m, idx) => `
     <tr class="border-b border-gray-100 ${idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}">
       <td class="px-3 py-2 font-medium">
@@ -895,6 +910,8 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager) {
         <div class="text-[10px] text-gray-500">${m.academicGroup || ''}</div>
       </td>
       <td class="px-3 py-2 text-center">${_bn(m.roll)}</td>
+      <td class="px-3 py-2 text-center text-xs">${classesMap?.get(m.classId)?.name || '-'}</td>
+      <td class="px-3 py-2 text-center text-xs">${sectionsMap?.get(m.sectionId)?.name || '-'}</td>
       <td class="px-3 py-2 text-center text-xs">
         <span class="px-2 py-0.5 rounded-full border ${_roleBadgeClass(m.role)}">
           ${_prettyRoleBn(m.role)}
@@ -917,6 +934,8 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager) {
           <tr>
             <th class="px-3 py-2 text-left">নাম</th>
             <th class="px-3 py-2 text-center">রোল</th>
+            <th class="px-3 py-2 text-center">ক্লাস</th>
+            <th class="px-3 py-2 text-center">শাখা</th>
             <th class="px-3 py-2 text-center">দায়িত্ব</th>
             <th class="px-3 py-2 text-center">মূল্যায়ন</th>
             <th class="px-3 py-2 text-center">টাস্ক স্কোর</th>
@@ -991,7 +1010,7 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager) {
 /**
  * Generates "Filtered Student List PDF"
  */
-export async function generateStudentListPDF(students, activeFilters, evaluations, groupMap, extraMap, taskMap) {
+export async function generateStudentListPDF(students, activeFilters, evaluations, groupMap, extraMap, taskMap, classesMap, sectionsMap) {
   const date = new Date().toLocaleDateString('bn-BD');
   
   // Helper to get filter text
@@ -1050,6 +1069,8 @@ export async function generateStudentListPDF(students, activeFilters, evaluation
           <td class="py-2 px-3 text-center text-gray-500">${_bn(index + 1)}</td>
           <td class="py-2 px-3 text-left">${s.name}</td>
           <td class="py-2 px-3 text-center">${_bn(s.roll)}</td>
+          <td class="py-2 px-3 text-center">${classesMap?.get(s.classId)?.name || '-'}</td>
+          <td class="py-2 px-3 text-center">${sectionsMap?.get(s.sectionId)?.name || '-'}</td>
           <td class="py-2 px-3 text-center">${s.gender || '-'}</td>
           <td class="py-2 px-3 text-center">${groupName}</td>
           <td class="py-2 px-3 text-center">${s.academicGroup || '-'}</td>
@@ -1079,6 +1100,8 @@ export async function generateStudentListPDF(students, activeFilters, evaluation
             <th class="py-2 px-3 text-center font-semibold border border-gray-300 w-12">#</th>
             <th class="py-2 px-3 text-left font-semibold border border-gray-300">নাম</th>
             <th class="py-2 px-3 text-center font-semibold border border-gray-300">রোল</th>
+            <th class="py-2 px-3 text-center font-semibold border border-gray-300">ক্লাস</th>
+            <th class="py-2 px-3 text-center font-semibold border border-gray-300">শাখা</th>
             <th class="py-2 px-3 text-center font-semibold border border-gray-300">লিঙ্গ</th>
             <th class="py-2 px-3 text-center font-semibold border border-gray-300">গ্রুপ</th>
             <th class="py-2 px-3 text-center font-semibold border border-gray-300">বিভাগ</th>
