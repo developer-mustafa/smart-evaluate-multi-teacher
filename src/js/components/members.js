@@ -1018,14 +1018,16 @@ async function _handleAddStudent() {
   const name = elements.studentNameInput?.value.trim();
   const roll = elements.studentRollInput?.value.trim();
   const gender = elements.studentGenderInput?.value;
+  const classId = elements.studentClassInput?.value;
+  const sectionId = elements.studentSectionInput?.value;
   const groupId = elements.studentGroupInput?.value;
   const contact = elements.studentContactInput?.value.trim();
   const academicGroup = elements.studentAcademicGroupInput?.value.trim();
   const session = elements.studentSessionInput?.value.trim();
   const role = elements.studentRoleInput?.value;
 
-  if (!name || !roll || !gender || !academicGroup || !session) {
-    uiManager.showToast('নাম, রোল, লিঙ্গ, একাডেমিক গ্রুপ এবং সেশন আবশ্যক।', 'warning');
+  if (!name || !roll || !gender || !classId || !sectionId || !academicGroup || !session) {
+    uiManager.showToast('নাম, রোল, লিঙ্গ, ক্লাস, শাখা, একাডেমিক গ্রুপ এবং সেশন আবশ্যক।', 'warning');
     return;
   }
 
@@ -1044,7 +1046,7 @@ async function _handleAddStudent() {
     return;
   }
 
-  const newStudentData = { name, roll, gender, groupId, contact, academicGroup, session, role };
+  const newStudentData = { name, roll, gender, classId, sectionId, groupId, contact, academicGroup, session, role };
 
   uiManager.showLoading('শিক্ষার্থী যোগ করা হচ্ছে...');
   try {
@@ -1055,6 +1057,8 @@ async function _handleAddStudent() {
     if (elements.studentNameInput) elements.studentNameInput.value = '';
     if (elements.studentRollInput) elements.studentRollInput.value = '';
     if (elements.studentGroupInput) elements.studentGroupInput.value = '';
+    if (elements.studentClassInput) elements.studentClassInput.value = '';
+    if (elements.studentSectionInput) elements.studentSectionInput.value = '';
     if (elements.studentContactInput) elements.studentContactInput.value = '';
     if (elements.studentAcademicGroupInput) elements.studentAcademicGroupInput.value = '';
     if (elements.studentSessionInput) elements.studentSessionInput.value = '';
@@ -1088,6 +1092,9 @@ function _handleEditStudent(studentId) {
   }
 
   const groups = stateManager.get('groups');
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+
   const groupOptions = groups
     .map(
       (g) =>
@@ -1096,6 +1103,15 @@ function _handleEditStudent(studentId) {
         )}</option>`
     )
     .sort((a, b) => a.localeCompare(b, 'bn'))
+    .join('');
+
+  const classOptions = `<option value="">ক্লাস নির্বাচন করুন</option>` + classes
+    .map(c => `<option value="${c.id}" ${c.id === student.classId ? 'selected' : ''}>${c.name}</option>`)
+    .join('');
+
+  const initialSections = sections.filter(s => s.classId === (student.classId || ''));
+  const sectionOptions = `<option value="">শাখা নির্বাচন করুন</option>` + initialSections
+    .map(s => `<option value="${s.id}" ${s.id === student.sectionId ? 'selected' : ''}>${s.name}</option>`)
     .join('');
 
   const roleOptions = [
@@ -1123,6 +1139,8 @@ function _handleEditStudent(studentId) {
     student.gender === 'মেয়ে' ? 'selected' : ''
   }>মেয়ে</option></select></div>
             <div><label class="label">গ্রুপ</label><select id="editStudentGroup" class="form-select"><option value="">গ্রুপ নেই</option>${groupOptions}</select></div>
+            <div><label class="label">ক্লাস</label><select id="editStudentClass" class="form-select">${classOptions}</select></div>
+            <div><label class="label">শাখা</label><select id="editStudentSection" class="form-select">${sectionOptions}</select></div>
             <div><label class="label">যোগাযোগ</label><input id="editStudentContact" type="text" value="${
               student.contact || ''
             }" class="form-input" maxlength="100"></div>
@@ -1142,6 +1160,8 @@ function _handleEditStudent(studentId) {
       roll: document.getElementById('editStudentRoll')?.value.trim(),
       gender: document.getElementById('editStudentGender')?.value,
       groupId: document.getElementById('editStudentGroup')?.value,
+      classId: document.getElementById('editStudentClass')?.value,
+      sectionId: document.getElementById('editStudentSection')?.value,
       contact: document.getElementById('editStudentContact')?.value.trim(),
       academicGroup: document.getElementById('editStudentAcademicGroup')?.value.trim(),
       session: document.getElementById('editStudentSession')?.value.trim(),
@@ -1190,6 +1210,21 @@ function _handleEditStudent(studentId) {
       uiManager.hideLoading();
     }
   });
+
+  // Dynamic Section Loading
+  setTimeout(() => {
+    const classSelect = document.getElementById('editStudentClass');
+    const sectionSelect = document.getElementById('editStudentSection');
+    if (classSelect && sectionSelect) {
+      classSelect.addEventListener('change', () => {
+        const selectedClassId = classSelect.value;
+        const relevantSections = sections.filter((s) => s.classId === selectedClassId);
+        sectionSelect.innerHTML =
+          `<option value="">শাখা নির্বাচন করুন</option>` +
+          relevantSections.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
+      });
+    }
+  }, 100);
 }
 
 /**
@@ -1326,9 +1361,77 @@ function _handleProcessImport() {
         return;
       }
 
-      const groupsMap = new Map(stateManager.get('groups').map((g) => [g.name.toLowerCase(), g.id]));
-      const classesMap = new Map(stateManager.get('classes').map((c) => [c.name.toLowerCase(), c.id]));
-      const sectionsMap = new Map(stateManager.get('sections').map((s) => [s.name.toLowerCase(), s.id]));
+      // Helper for normalizing text for comparison
+      const normalizeText = (text) => (text || '').normalize('NFC').trim().toLowerCase();
+
+      const groupsMap = new Map(stateManager.get('groups').map((g) => [normalizeText(g.name), g.id]));
+      
+      // --- Auto-Create Logic Start ---
+      let classes = stateManager.get('classes');
+      let classesMap = new Map(classes.map((c) => [normalizeText(c.name), c.id]));
+
+      // 1. Identify and Create Missing Classes
+      const newClasses = new Set();
+      for (const row of data) {
+        const cName = normalizeText(row['ক্লাস']);
+        if (cName && !classesMap.has(cName)) newClasses.add(row['ক্লাস'].trim());
+      }
+
+      if (newClasses.size > 0) {
+        if (confirm(`CSV ফাইলে ${newClasses.size} টি নতুন ক্লাস পাওয়া গেছে:\n${[...newClasses].join(', ')}\n\nএগুলো কি ডাটাবেসে যোগ করবেন?`)) {
+          uiManager.showLoading('নতুন ক্লাস তৈরি করা হচ্ছে...');
+          for (const name of newClasses) {
+            await dataService.addDocument('classes', { name, createdAt: new Date().toISOString() });
+          }
+          classes = await dataService.loadClasses();
+          stateManager.update({ classes });
+          classesMap = new Map(classes.map((c) => [normalizeText(c.name), c.id]));
+        } else {
+          uiManager.hideLoading();
+          return;
+        }
+      }
+
+      // 2. Identify and Create Missing Sections
+      let sections = stateManager.get('sections');
+      // Key: ClassID_SectionName -> SectionID
+      let sectionsMap = new Map(sections.map((s) => [`${s.classId}_${normalizeText(s.name)}`, s.id]));
+      
+      const newSections = new Map(); // Key: Composite, Value: Info
+      for (const row of data) {
+        const cName = normalizeText(row['ক্লাস']);
+        const sName = normalizeText(row['শাখা']);
+        if (cName && sName) {
+          const classId = classesMap.get(cName);
+          if (classId) {
+            const key = `${classId}_${sName}`;
+            if (!sectionsMap.has(key)) {
+              newSections.set(key, { name: row['শাখা'].trim(), classId });
+            }
+          }
+        }
+      }
+
+      if (newSections.size > 0) {
+        if (confirm(`CSV ফাইলে ${newSections.size} টি নতুন শাখা পাওয়া গেছে।\nএগুলো কি ডাটাবেসে যোগ করবেন?`)) {
+          uiManager.showLoading('নতুন শাখা তৈরি করা হচ্ছে...');
+          for (const info of newSections.values()) {
+            await dataService.addDocument('sections', { 
+              name: info.name, 
+              classId: info.classId, 
+              createdAt: new Date().toISOString() 
+            });
+          }
+          sections = await dataService.loadSections();
+          stateManager.update({ sections });
+          sectionsMap = new Map(sections.map((s) => [`${s.classId}_${normalizeText(s.name)}`, s.id]));
+        } else {
+          uiManager.hideLoading();
+          return;
+        }
+      }
+      // --- Auto-Create Logic End ---
+
       const existingStudents = stateManager.get('students');
       uiManager.showLoading('শিক্ষার্থী ডেটা যাচাই করা হচ্ছে...');
 
@@ -1338,48 +1441,73 @@ function _handleProcessImport() {
         const name = row['নাম'];
         const roll = row['রোল'];
         const gender = row['লিঙ্গ'];
-        const className = (row['ক্লাস'] || '').toLowerCase();
-        const sectionName = (row['শাখা'] || '').toLowerCase();
+        const className = normalizeText(row['ক্লাস']);
+        const sectionName = normalizeText(row['শাখা']);
         const academicGroup = row['একাডেমিক গ্রুপ'];
         const session = row['সেশন'];
         const contact = row['যোগাযোগ'] || '';
-        const groupName = (row['গ্রুপের নাম'] || '').toLowerCase();
+        const groupName = normalizeText(row['গ্রুপের নাম']);
         const roleCode = (row['দায়িত্ব কোড'] || '').toLowerCase();
 
         if (!name || !roll || !gender || !className || !sectionName || !academicGroup || !session) {
           return { error: `লাইন ${lineNumber}: আবশ্যক ফিল্ড খালি রয়েছে।` };
         }
-        if (!['ছেলে', 'মেয়ে'].includes(gender)) {
+        // Normalize gender for comparison
+        const normalizedGender = gender.normalize('NFC');
+        const validGenders = ['ছেলে', 'মেয়ে', 'মেয়ে']; // Includes both U+09DF and U+09AF+U+09BC variants
+        
+        if (!validGenders.includes(normalizedGender)) {
           return { error: `লাইন ${lineNumber}: লিঙ্গ (${gender}) অবশ্যই 'ছেলে' অথবা 'মেয়ে' হতে হবে।` };
         }
         
         // Validate class
         const classId = classesMap.get(className) || '';
         if (!classId) {
-          return { error: `লাইন ${lineNumber}: "${row['ক্লাস']}" নামে ক্লাস পাওয়া যায়নি।` };
+          const availableClasses = Array.from(classesMap.keys()).join(', ');
+          return { error: `লাইন ${lineNumber}: "${row['ক্লাস']}" নামে ক্লাস পাওয়া যায়নি। (উপলব্ধ: ${availableClasses})` };
         }
         
         // Validate section
-        const sectionId = sectionsMap.get(sectionName) || '';
+        const sectionKey = `${classId}_${sectionName}`;
+        const sectionId = sectionsMap.get(sectionKey) || '';
         if (!sectionId) {
-          return { error: `লাইন ${lineNumber}: "${row['শাখা']}" নামে শাখা পাওয়া যায়নি।` };
+           // Helper to list available sections for this class
+           const availableSections = sections
+             .filter(s => s.classId === classId)
+             .map(s => s.name)
+             .join(', ');
+          return { error: `লাইন ${lineNumber}: "${row['ক্লাস']}" ক্লাসের জন্য "${row['শাখা']}" শাখা পাওয়া যায়নি। (উপলব্ধ: ${availableSections})` };
         }
         
         const groupId = groupName ? groupsMap.get(groupName) || '' : '';
         if (groupName && !groupId) {
+          // Limit available groups display as there might be many
+          const availableGroups = Array.from(groupsMap.keys()).slice(0, 10).join(', ') + (groupsMap.size > 10 ? '...' : '');
           return { error: `লাইন ${lineNumber}: "${row['গ্রুপের নাম']}" নামে গ্রুপ পাওয়া যায়নি।` };
         }
 
-        try {
-          const isDuplicateInDB = await dataService.checkStudentUniqueness(roll, academicGroup);
-          if (isDuplicateInDB) {
-            return { error: `লাইন ${lineNumber}: রোল ${roll} (${academicGroup}) ডাটাবেসে ইতিমধ্যে রয়েছে।` };
-          }
-        } catch (dbError) {
-          return { error: `লাইন ${lineNumber}: রোল ${roll} যাচাই করতে সমস্যা (${dbError.message})।` };
-        }
+        // Standardize gender for database consistency
+        const finalGender = ['মেয়ে', 'মেয়ে'].includes(normalizedGender) ? 'মেয়ে' : 'ছেলে';
+        
+        const studentObj = { name, roll, gender: finalGender, classId, sectionId, groupId, contact, academicGroup, session, role: roleCode };
 
-        return { student: { name, roll, gender, classId, sectionId, groupId, contact, academicGroup, session, role: roleCode } };
+        // Check for existing student in local state (Update Mode)
+        const existingStudent = existingStudents.find(s => 
+            String(s.roll) === String(roll) && 
+            normalizeText(s.academicGroup) === normalizeText(academicGroup)
+        );
+
+        if (existingStudent) {
+             return { 
+                 student: { ...studentObj, id: existingStudent.id },
+                 isUpdate: true
+             };
+        } else {
+             return { 
+                 student: studentObj,
+                 isUpdate: false
+             };
+        }
       });
 
       const resultsData = await Promise.all(validationPromises);
@@ -1396,7 +1524,10 @@ function _handleProcessImport() {
           rollCheck.add(key);
         }
         if (item.error) errors.push(item.error);
-        else if (item.student) newStudents.push(item.student);
+        else if (item.student) {
+            item.student.isUpdate = item.isUpdate;
+            newStudents.push(item.student);
+        }
       }
       // --- End Validation ---
 
@@ -1410,19 +1541,30 @@ function _handleProcessImport() {
         );
         console.error('CSV Import Errors:', errors);
       } else if (newStudents.length > 0) {
-        uiManager.showLoading(`(${helpers.convertToBanglaNumber(newStudents.length)}) জন শিক্ষার্থী যোগ করা হচ্ছে...`);
+        const toAdd = newStudents.filter(s => !s.isUpdate);
+        const toUpdate = newStudents.filter(s => s.isUpdate);
+        
+        uiManager.showLoading(`প্রসেসিং: ${helpers.convertToBanglaNumber(toAdd.length)} নতুন, ${helpers.convertToBanglaNumber(toUpdate.length)} আপডেট...`);
+        
         try {
-          // TODO: Use batch add if available in dataService
-          for (const studentData of newStudents) {
-            await dataService.addStudent(studentData);
+          // Add new
+          for (const s of toAdd) {
+             const { isUpdate, ...data } = s;
+             await dataService.addStudent(data);
           }
+          // Update existing
+          for (const s of toUpdate) {
+             const { isUpdate, id, ...data } = s;
+             await dataService.updateStudent(id, data);
+          }
+          
           await app.refreshAllData();
           uiManager.showToast(
-            `${helpers.convertToBanglaNumber(newStudents.length)} জন শিক্ষার্থী ইম্পোর্ট হয়েছে।`,
+            `সফল! ${helpers.convertToBanglaNumber(toAdd.length)} যোগ, ${helpers.convertToBanglaNumber(toUpdate.length)} আপডেট।`,
             'success'
           );
         } catch (error) {
-          uiManager.showToast(`শিক্ষার্থী যোগ করতে সমস্যা: ${error.message}`, 'error');
+          uiManager.showToast(`শিক্ষার্থী সেভ করতে সমস্যা: ${error.message}`, 'error');
         } finally {
           uiManager.hideLoading();
         }
