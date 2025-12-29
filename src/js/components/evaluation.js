@@ -163,10 +163,18 @@ function _setupEventListeners() {
  * @private
  */
 function _populateSelectors() {
+  console.log('📋 Populating evaluation selectors...');
   if (tasksComponent?.populateTaskSelects) {
     tasksComponent.populateTaskSelects(['evaluationTaskSelect'], 'টাস্ক নির্বাচন করুন');
   }
   if (app.components.groups?.populateGroupSelects) {
+    console.log('📋 Calling populateGroupSelects for evaluation...');
+    const groups = stateManager.get('groups');
+    const user = stateManager.get('currentUserData');
+    const teacher = stateManager.get('currentTeacher');
+    console.log('Groups available:', groups?.length || 0);
+    console.log('User type:', user?.type);
+    console.log('Teacher data:', teacher);
     app.components.groups.populateGroupSelects(['evaluationGroupSelect'], 'গ্রুপ নির্বাচন করুন');
   }
   if (elements.evaluationTaskSelect?.options[0]) elements.evaluationTaskSelect.options[0].disabled = true;
@@ -202,10 +210,21 @@ async function _handleStartOrEditEvaluation() {
   }
   currentTaskBreakdown = task.maxScoreBreakdown;
 
-  const studentsInGroup = stateManager
+  let studentsInGroup = stateManager
     .get('students')
     .filter((s) => s.groupId === groupId)
     .sort((a, b) => String(a.roll).localeCompare(String(b.roll), undefined, { numeric: true }));
+
+  // Filter students for teacher - use currentTeacher for assignments
+  // Teachers can evaluate ALL students from their assigned classes (not restricted by section)
+  const user = stateManager.get('currentUserData');
+  if (user && user.type === 'teacher') {
+      const teacher = stateManager.get('currentTeacher');
+      const assignedClasses = teacher?.assignedClasses || [];
+      studentsInGroup = studentsInGroup.filter(s => 
+          assignedClasses.includes(s.classId)
+      );
+  }
   if (studentsInGroup.length === 0) {
     uiManager.showToast('নির্বাচিত গ্রুপে কোনো শিক্ষার্থী নেই।', 'warning');
     return;
@@ -667,11 +686,14 @@ async function _handleSubmitEvaluation() {
   const groupAverageScoreValue = groupTotalScoreSum / studentCount;
   const groupAveragePercent = totalMaxScore > 0 ? (groupAverageScoreValue / totalMaxScore) * 100 : 0;
 
+  const group = stateManager.get('groups').find((g) => g.id === groupId);
   const evaluationData = {
     taskId,
     groupId,
+    classId: group?.classId || null,
+    sectionId: group?.sectionId || null,
     taskName: task.name,
-    groupName: stateManager.get('groups').find((g) => g.id === groupId)?.name || 'Unknown',
+    groupName: group?.name || 'Unknown',
     scores, // Object containing only the scored students
     studentCount: studentCount, // Number of students actually scored
     groupTotalScore: groupTotalScoreSum,
@@ -710,14 +732,44 @@ async function _handleSubmitEvaluation() {
  */
 function _renderEvaluationList() {
   if (!elements.evaluationListTableBody) return;
-  const evaluations = stateManager.get('evaluations');
-  const taskMap = new Map(stateManager.get('tasks').map((t) => [t.id, t]));
-  const groupMap = new Map(stateManager.get('groups').map((g) => [g.id, g.name]));
+  let evaluations = stateManager.get('evaluations');
+  const user = stateManager.get('currentUserData');
+  const tasks = stateManager.get('tasks') || [];
+  const groups = stateManager.get('groups') || [];
+  
+  if (user && user.type === 'teacher') {
+      const teacher = stateManager.get('currentTeacher');
+      const assignedSubjects = teacher?.assignedSubjects || [];
+      const assignedClasses = teacher?.assignedClasses || [];
+      const assignedSections = teacher?.assignedSections || [];
+      
+      const taskMap = new Map(tasks.map(t => [t.id, t]));
+      const groupMap = new Map(groups.map(g => [g.id, g]));
+
+      evaluations = evaluations.filter(e => {
+          const task = taskMap.get(e.taskId);
+          const group = groupMap.get(e.groupId);
+          
+          // Filter by subject (from task) - STRICT: must match assigned subject
+          const subjectMatch = task && task.subjectId ? assignedSubjects.includes(task.subjectId) : false;
+          
+          // Filter by class/section (from evaluation or group)
+          const classMatch = e.classId ? assignedClasses.includes(e.classId) : 
+                            (group?.classId ? assignedClasses.includes(group.classId) : true);
+          const sectionMatch = e.sectionId ? assignedSections.includes(e.sectionId) : 
+                              (group?.sectionId ? assignedSections.includes(group.sectionId) : true);
+
+          return subjectMatch && classMatch && sectionMatch;
+      });
+  }
+
+  const taskMap = new Map(tasks.map((t) => [t.id, t]));
+  const groupMap = new Map(groups.map((g) => [g.id, g.name]));
   evaluations.sort((a, b) => (b.taskDate || '').localeCompare(a.taskDate || ''));
   uiManager.clearContainer(elements.evaluationListTableBody);
   if (evaluations.length === 0) {
     const row = elements.evaluationListTableBody.insertRow();
-    row.innerHTML = `<td colspan="5" class="placeholder-content p-4">কোনো মূল্যায়ন জমা দেওয়া হয়নি।</td>`;
+    row.innerHTML = `<td colspan="5" class="placeholder-content p-4 text-center text-gray-500 dark:text-gray-400">কোনো মূল্যায়ন খুঁজে পাওয়া যায়নি।</td>`;
     return;
   }
   evaluations.forEach((e) => {

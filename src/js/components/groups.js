@@ -573,7 +573,50 @@ function _handleDeleteGroup(groupId) {
  */
 export function populateGroupSelects(selectElementIds, defaultOptionText = 'সকল গ্রুপ') {
   const groups = stateManager.get('groups');
-  const options = groups
+  const user = stateManager.get('currentUserData');
+  
+  console.log('🔍 populateGroupSelects called');
+  console.log('Total groups:', groups?.length || 0);
+  console.log('User type:', user?.type);
+  
+  let filteredGroups = groups;
+
+  if (user && user.type === 'teacher') {
+      const students = stateManager.get('students') || [];
+      const teacher = stateManager.get('currentTeacher');
+      const assignedClasses = teacher?.assignedClasses || [];
+      // Note: We're NOT filtering by section - teachers get ALL groups from their assigned classes
+      
+      console.log('👨‍🏫 Teacher filtering:');
+      console.log('Assigned classes:', assignedClasses);
+      console.log('Total students:', students.length);
+
+      // Get all group IDs that have at least one student from teacher's assigned classes
+      // Note: Students have groupId field, not groups having studentIds array
+      const relevantGroupIds = new Set(
+          students
+              .filter(s => assignedClasses.includes(s.classId) && s.groupId)
+              .map(s => s.groupId)
+      );
+      
+      console.log('Relevant group IDs:', relevantGroupIds.size);
+      console.log('Sample group IDs:', Array.from(relevantGroupIds).slice(0, 5));
+
+      // Filter groups by checking if their ID is in the relevant group IDs set
+      filteredGroups = groups.filter(g => {
+          const isRelevant = relevantGroupIds.has(g.id);
+          if (isRelevant) {
+              console.log('✅ Group included:', g.name, '(ID:', g.id, ')');
+          } else {
+              console.log('❌ Group excluded (no students from assigned class):', g.name);
+          }
+          return isRelevant;
+      });
+      
+      console.log('Filtered groups for teacher:', filteredGroups.length);
+  }
+
+  const options = filteredGroups
     .map((g) => ({
       value: g.id,
       text: helpers.ensureBengaliText(g.name),

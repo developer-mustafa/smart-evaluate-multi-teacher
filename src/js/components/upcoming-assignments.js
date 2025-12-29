@@ -559,8 +559,16 @@ function _countdownClass(parts) {
 export function render() {
   if (!elements.page) return;
 
-  const tasks = stateManager.get('tasks') || [];
-  const evaluations = stateManager.get('evaluations') || [];
+  let tasks, evaluations;
+  const user = stateManager.get('currentUserData');
+
+  if (user && user.type === 'teacher') {
+      tasks = stateManager.getFilteredData('tasks');
+      evaluations = stateManager.getFilteredData('evaluations');
+  } else {
+      tasks = stateManager.get('tasks') || [];
+      evaluations = stateManager.get('evaluations') || [];
+  }
   const assignmentNumberMap = _buildAssignmentNumberMap(tasks);
 
   // Normalize (with 10:20 rule) so status/ISO are correct
@@ -841,6 +849,7 @@ function _wireAccordions() {
     });
   });
 }
+
 
 function _animateToggle(panel, open) {
   if (!panel) return;

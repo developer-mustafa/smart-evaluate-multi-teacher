@@ -56,6 +56,7 @@ export function render() {
   try {
     // Multi-teacher support: Use filtered data based on user role
     const currentUserType = stateManager.get('currentUserData')?.type;
+    const activeContext = stateManager.get('activeContext') || {};
     let groups, students, tasks, evaluations;
     
     if (currentUserType === 'teacher') {
@@ -66,12 +67,49 @@ export function render() {
       evaluations = stateManager.getFilteredData('evaluations');
       console.log('📚 Teacher mode: Using filtered data');
     } else {
-      // Super-admin and public users see all data
+      // Admin/Super-admin: Apply activeContext filters if set
       const state = stateManager.getState();
-      groups = state.groups;
-      students = state.students;
-      tasks = state.tasks;
-      evaluations = state.evaluations;
+      groups = state.groups || [];
+      students = state.students || [];
+      tasks = state.tasks || [];
+      evaluations = state.evaluations || [];
+      
+      // Apply admin filters based on activeContext
+      if (activeContext.classId || activeContext.sectionId || activeContext.subjectId) {
+        console.log('🔧 Admin mode: Applying activeContext filters:', activeContext);
+        
+        // Filter students by class and section
+        if (activeContext.classId) {
+          students = students.filter(s => s.classId === activeContext.classId);
+        }
+        if (activeContext.sectionId) {
+          students = students.filter(s => s.sectionId === activeContext.sectionId);
+        }
+        
+        // Filter tasks by subject
+        if (activeContext.subjectId) {
+          tasks = tasks.filter(t => t.subjectId === activeContext.subjectId);
+        }
+        
+        // Filter groups to only those containing filtered students
+        if (activeContext.classId || activeContext.sectionId) {
+          const filteredStudentGroupIds = new Set(students.filter(s => s.groupId).map(s => s.groupId));
+          groups = groups.filter(g => filteredStudentGroupIds.has(g.id));
+        }
+        
+        // Filter evaluations to only those for filtered tasks
+        if (activeContext.subjectId) {
+          const filteredTaskIds = new Set(tasks.map(t => t.id));
+          evaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
+        }
+        
+        console.log('📊 Filtered data:', {
+          groups: groups.length,
+          students: students.length,
+          tasks: tasks.length,
+          evaluations: evaluations.length
+        });
+      }
     }
     if (!groups || !students || !tasks || !evaluations) {
       uiManager.displayEmptyMessage(elements.page, 'ডেটা এখনো লোড হচ্ছে...');
@@ -96,6 +134,9 @@ export function render() {
 
     // Populate Assignment Filter
     _populateAssignmentFilter(tasks);
+    
+    // Setup Dashboard Filters (Admin) and Teacher Info
+    _setupDashboardFilters();
 
     console.log('✅ Dashboard rendered successfully.');
   } catch (error) {
@@ -251,7 +292,8 @@ function _getDashboardHTMLStructure() {
           
 
         </div>
-         <div class="relative">
+         <div class="flex flex-wrap gap-2 items-center mt-2">
+             <div class="relative">
                 <select id="dashboardAssignmentFilter" 
                   class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 
                   text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 pl-2 pr-6 
@@ -262,6 +304,32 @@ function _getDashboardHTMLStructure() {
                   <i class="fas fa-chevron-down text-[10px]"></i>
                 </div>
             </div>
+
+            <!-- Teacher Filters (Hidden by default) -->
+            <div id="teacherFiltersContainer" class="hidden flex flex-wrap gap-2 items-center">
+                <!-- Teacher Info Card -->
+                <div id="teacherInfoCard" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200/60 dark:border-indigo-700/50 shadow-sm">
+                    <i class="fas fa-chalkboard-teacher text-indigo-600 dark:text-indigo-300"></i>
+                    <div class="text-xs font-semibold text-indigo-900 dark:text-indigo-200">
+                        <span id="teacherNameDisplay">শিক্ষক</span>
+                        <span class="text-indigo-400 dark:text-indigo-500 mx-1">·</span>
+                        <span id="teacherAssignmentDisplay" class="text-indigo-700 dark:text-indigo-300"></span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 items-center">
+                    <select id="dashboardClassFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+                        <option value="">সকল ক্লাস</option>
+                    </select>
+                    <select id="dashboardSectionFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+                        <option value="">সকল শাখা</option>
+                    </select>
+                    <select id="dashboardSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+                        <option value="">সকল বিষয়</option>
+                    </select>
+                </div>
+            </div>
+         </div>
       </div>
     </section>
 
@@ -880,7 +948,44 @@ function _populateAssignmentFilter(tasks) {
 
 function _updateDashboardForTask(taskId) {
   console.log('🔄 Filter changed to:', taskId);
-  const { groups, students, tasks, evaluations } = stateManager.getState();
+  
+  // Get base data
+  const state = stateManager.getState();
+  let { groups, students, tasks, evaluations } = state;
+  
+  // Apply filtering based on user type and activeContext
+  const currentUserType = stateManager.get('currentUserData')?.type;
+  const activeContext = stateManager.get('activeContext') || {};
+  
+  // Apply admin filters based on activeContext (same logic as render function)
+  if (currentUserType !== 'teacher' && (activeContext.classId || activeContext.sectionId || activeContext.subjectId)) {
+    console.log('🔧 Admin filter: Applying activeContext to task view:', activeContext);
+    
+    // Filter students by class and section
+    if (activeContext.classId) {
+      students = students.filter(s => s.classId === activeContext.classId);
+    }
+    if (activeContext.sectionId) {
+      students = students.filter(s => s.sectionId === activeContext.sectionId);
+    }
+    
+    // Filter tasks by subject
+    if (activeContext.subjectId) {
+      tasks = tasks.filter(t => t.subjectId === activeContext.subjectId);
+    }
+    
+    // Filter groups to only those containing filtered students
+    if (activeContext.classId || activeContext.sectionId) {
+      const filteredStudentGroupIds = new Set(students.filter(s => s.groupId).map(s => s.groupId));
+      groups = groups.filter(g => filteredStudentGroupIds.has(g.id));
+    }
+    
+    // Filter evaluations to only those for filtered tasks
+    if (activeContext.subjectId) {
+      const filteredTaskIds = new Set(tasks.map(t => t.id));
+      evaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
+    }
+  }
   
   let targetTask = null;
   let summary = null;
@@ -889,8 +994,28 @@ function _updateDashboardForTask(taskId) {
   if (taskId === 'global_rank') {
       // --- Global Rank Logic ---
       
-      // 1. Calculate Stats using ALL evaluations
-      const stats = _calculateStats(groups, students, tasks, evaluations);
+      // Filter tasks and evaluations for teachers based on assigned subjects
+      const currentUserType = stateManager.get('currentUserData')?.type;
+      const currentTeacher = stateManager.get('currentTeacher');
+      let filteredTasks = tasks;
+      let filteredEvaluations = evaluations;
+      
+      if (currentUserType === 'teacher' && currentTeacher) {
+          const assignedSubjects = currentTeacher.assignedSubjects || [];
+          console.log('👨‍🏫 Teacher Global Rank: Filtering by assigned subjects:', assignedSubjects);
+          
+          // Filter tasks to only include those from assigned subjects
+          filteredTasks = tasks.filter(t => t.subjectId && assignedSubjects.includes(t.subjectId));
+          console.log('📊 Filtered tasks from', tasks.length, 'to', filteredTasks.length);
+          
+          // Filter evaluations to only include those for the filtered tasks
+          const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+          filteredEvaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
+          console.log('📊 Filtered evaluations from', evaluations.length, 'to', filteredEvaluations.length);
+      }
+      
+      // 1. Calculate Stats using filtered evaluations and tasks
+      const stats = _calculateStats(groups, students, filteredTasks, filteredEvaluations);
       
       // 2. Render Rankings (This is the core request)
       _renderTopGroups(stats.groupPerformanceData);
@@ -899,8 +1024,13 @@ function _updateDashboardForTask(taskId) {
 
       // 3. Update Titles & Labels
       if (elements.latestTaskTitle) {
-          elements.latestTaskTitle.textContent = 'সামগ্রিক পারফরম্যান্স (সকল এসাইনমেন্ট)';
-          elements.latestTaskTitle.title = 'সকল এসাইনমেন্টের গড় ফলাফলের ভিত্তিতে';
+          if (currentUserType === 'teacher') {
+              elements.latestTaskTitle.textContent = 'সামগ্রিক পারফরম্যান্স (আমার এসাইনমেন্ট)';
+              elements.latestTaskTitle.title = 'আমার নির্ধারিত বিষয়ের সকল এসাইনমেন্টের গড় ফলাফলের ভিত্তিতে';
+          } else {
+              elements.latestTaskTitle.textContent = 'সামগ্রিক পারফরম্যান্স (সকল এসাইনমেন্ট)';
+              elements.latestTaskTitle.title = 'সকল এসাইনমেন্টের গড় ফলাফলের ভিত্তিতে';
+          }
       }
       
       if (elements.assignmentStatusTitle) {
@@ -914,13 +1044,13 @@ function _updateDashboardForTask(taskId) {
           elements.latestAssignmentUpdated.textContent = 'হালনাগাদ';
       }
 
-      // 4. Calculate Global Aggregate Data for Cards
-      // Total possible student-evaluations = Students * Tasks
-      const totalPossibleEvaluations = students.length * tasks.length;
+      // 4. Calculate Global Aggregate Data for Cards (using filtered data)
+      // Total possible student-evaluations = Students * Filtered Tasks
+      const totalPossibleEvaluations = students.length * filteredTasks.length;
       
-      // Actual evaluations count
+      // Actual evaluations count (from filtered evaluations)
       let totalEvaluatedCount = 0;
-      evaluations.forEach(e => {
+      filteredEvaluations.forEach(e => {
           if (e.scores) totalEvaluatedCount += Object.keys(e.scores).length;
       });
 
@@ -938,17 +1068,17 @@ function _updateDashboardForTask(taskId) {
           elements.progressBarLabel.textContent = `${helpers.convertToBanglaNumber(progressPercent)}%`;
       }
 
-      // 6. Update Stats Cards
+      // 6. Update Stats Cards (using filtered data)
       if (elements.latestAssignmentEvaluated) elements.latestAssignmentEvaluated.textContent = helpers.convertToBanglaNumber(totalEvaluatedCount);
       if (elements.latestAssignmentPending) elements.latestAssignmentPending.textContent = helpers.convertToBanglaNumber(totalPossibleEvaluations - totalEvaluatedCount);
       if (elements.latestAssignmentStudentTotal) elements.latestAssignmentStudentTotal.textContent = helpers.convertToBanglaNumber(totalPossibleEvaluations);
 
-      // Group Stats (Evaluated = Groups * Tasks)
-      const totalPossibleGroupEvaluations = groups.length * tasks.length;
+      // Group Stats (Evaluated = Groups * Filtered Tasks)
+      const totalPossibleGroupEvaluations = groups.length * filteredTasks.length;
       let totalGroupEvaluatedCount = 0;
-      // We can count unique group-task pairs in evaluations
+      // We can count unique group-task pairs in filtered evaluations
       const groupTaskPairs = new Set();
-      evaluations.forEach(e => {
+      filteredEvaluations.forEach(e => {
           if (e.groupId && e.taskId) groupTaskPairs.add(`${e.groupId}_${e.taskId}`);
       });
       totalGroupEvaluatedCount = groupTaskPairs.size;
@@ -966,10 +1096,10 @@ function _updateDashboardForTask(taskId) {
       // 2. Latest Assignment Average for "Latest Assignment Average" Card
       // 2. Latest Assignment Average for "Latest Assignment Average" Card
       // We need to find the latest assignment that has evaluations to show meaningful data
-      const sortedTasks = [...tasks].sort((a, b) => _getTaskScheduleTimestamp(b) - _getTaskScheduleTimestamp(a));
+      const sortedTasks = [...filteredTasks].sort((a, b) => _getTaskScheduleTimestamp(b) - _getTaskScheduleTimestamp(a));
       
       // Find the first task that has evaluations
-      let targetTask = sortedTasks.find(t => evaluations.some(e => String(e.taskId) === String(t.id)));
+      let targetTask = sortedTasks.find(t => filteredEvaluations.some(e => String(e.taskId) === String(t.id)));
       
       // Fallback to the absolute latest task if no evaluations found for any task
       if (!targetTask) {
@@ -978,7 +1108,7 @@ function _updateDashboardForTask(taskId) {
 
       let latestAvg = 0;
       if (targetTask) {
-          const latestTaskEvals = evaluations.filter(e => String(e.taskId) === String(targetTask.id));
+          const latestTaskEvals = filteredEvaluations.filter(e => String(e.taskId) === String(targetTask.id));
           const latestTaskStats = _calculateAssignmentAverageStats([targetTask], latestTaskEvals);
           latestAvg = latestTaskStats.assignmentAverageMap.get(String(targetTask.id)) || 0;
           
@@ -1000,7 +1130,7 @@ function _updateDashboardForTask(taskId) {
 
       // Update Label for Global Rank
       if (elements.latestAssignmentAverageLabelText) {
-          elements.latestAssignmentAverageLabelText.textContent = 'সর্বশেষ এসাইনমেন্ট গড়';
+          elements.latestAssignmentAverageLabelText.textContent = 'সর্বশেষ এসাইনমেন্ট গড়';
       }
 
       return; // Exit early for global rank
@@ -2391,3 +2521,127 @@ function _buildCircularMeter(score, palette, size = 96) {
     </div>
   `;
 }
+
+function _setupDashboardFilters() {
+    const teacherInfoContainer = document.getElementById('teacherFiltersContainer');
+    const teacherInfoCard = document.getElementById('teacherInfoCard');
+    const teacherNameDisplay = document.getElementById('teacherNameDisplay');
+    const teacherAssignmentDisplay = document.getElementById('teacherAssignmentDisplay');
+    
+    const classSelect = document.getElementById('dashboardClassFilter');
+    const sectionSelect = document.getElementById('dashboardSectionFilter');
+    const subjectSelect = document.getElementById('dashboardSubjectFilter');
+    
+    // Get the wrapper div that contains all three filter selects
+    // This is the div with class "flex flex-wrap gap-2 items-center" inside teacherFiltersContainer
+    const filtersWrapper = classSelect?.parentElement;
+    
+    console.log('🔍 Filter setup debug:', {
+        teacherInfoContainer: !!teacherInfoContainer,
+        teacherInfoCard: !!teacherInfoCard,
+        classSelect: !!classSelect,
+        sectionSelect: !!sectionSelect,
+        subjectSelect: !!subjectSelect,
+        filtersWrapper: !!filtersWrapper
+    });
+
+    const user = stateManager.get('currentUserData');
+    const currentTeacher = stateManager.get('currentTeacher');
+    const isTeacher = user && user.type === 'teacher';
+    // If user is undefined (auth not complete), assume admin since only authenticated users can access dashboard
+    const isAdmin = user ? (user.type === 'admin' || user.type === 'super-admin') : true;
+    
+    console.log('👤 User type:', user?.type, 'isAdmin:', isAdmin, 'isTeacher:', isTeacher);
+
+    // === TEACHER: Show info card ONLY, hide filter dropdowns ===
+    if (isTeacher) {
+        if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden');
+        
+        // Hide the filter dropdowns for teachers
+        if (filtersWrapper) filtersWrapper.classList.add('hidden');
+
+        // Display Teacher Info Card
+        if (teacherInfoCard && teacherNameDisplay && teacherAssignmentDisplay) {
+            teacherInfoCard.classList.remove('hidden');
+            
+            // Teacher Name
+            const teacherName = currentTeacher?.name || user.email?.split('@')[0] || 'শিক্ষক';
+            teacherNameDisplay.textContent = teacherName;
+            
+            // Get assigned data from currentTeacher (NOT from user which doesn't have assignments)
+            const assignedClasses = currentTeacher?.assignedClasses || [];
+            const assignedSections = currentTeacher?.assignedSections || [];
+            const assignedSubjects = currentTeacher?.assignedSubjects || [];
+            
+            const allClasses = stateManager.get('classes') || [];
+            const allSections = stateManager.get('sections') || [];
+            const allSubjects = stateManager.get('subjects') || [];
+
+            const availableClasses = allClasses.filter(c => assignedClasses.includes(c.id));
+            const availableSections = allSections.filter(s => assignedSections.includes(s.id));
+            const availableSubjects = allSubjects.filter(s => assignedSubjects.includes(s.id));
+
+            // Build assignment summary
+            const classNames = availableClasses.map(c => c.name).join(', ') || 'N/A';
+            const sectionNames = availableSections.map(s => s.name).join(', ') || 'N/A';
+            const subjectNames = availableSubjects.map(s => s.name).join(', ') || 'N/A';
+            
+            teacherAssignmentDisplay.innerHTML = `
+                <span class="text-indigo-600 dark:text-indigo-400">ক্লাস:</span> ${classNames} 
+                <span class="mx-1 text-indigo-400">|</span>
+                <span class="text-indigo-600 dark:text-indigo-400">শাখা:</span> ${sectionNames}
+                <span class="mx-1 text-indigo-400">|</span>
+                <span class="text-indigo-600 dark:text-indigo-400">বিষয়:</span> ${subjectNames}
+            `;
+        }
+        return; // Teacher setup done - no filters
+    }
+
+    // === ADMIN: Show filter dropdowns, hide teacher info ===
+    if (isAdmin) {
+        if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden');
+        if (teacherInfoCard) teacherInfoCard.classList.add('hidden'); // Hide teacher-specific card
+        if (filtersWrapper) filtersWrapper.classList.remove('hidden'); // Show filter dropdowns
+
+        if (!classSelect || !sectionSelect || !subjectSelect) return;
+
+        // Populate with ALL options for admin (remove duplicates by name)
+        const allClasses = stateManager.get('classes') || [];
+        const allSections = stateManager.get('sections') || [];
+        const allSubjects = stateManager.get('subjects') || [];
+        
+        // Remove duplicates by name (not ID) - if multiple entries have same name, keep first one
+        const uniqueClasses = Array.from(new Map(allClasses.map(c => [c.name, c])).values());
+        const uniqueSections = Array.from(new Map(allSections.map(s => [s.name, s])).values());
+        const uniqueSubjects = Array.from(new Map(allSubjects.map(s => [s.name, s])).values());
+
+        uiManager.populateSelect(classSelect, uniqueClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
+        uiManager.populateSelect(sectionSelect, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
+        uiManager.populateSelect(subjectSelect, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+
+        // Set current values from activeContext
+        const context = stateManager.get('activeContext') || {};
+        if (context.classId) classSelect.value = context.classId;
+        if (context.sectionId) sectionSelect.value = context.sectionId;
+        if (context.subjectId) subjectSelect.value = context.subjectId;
+
+        // Add Listeners
+        const updateContext = () => {
+            stateManager.setActiveContext({
+                classId: classSelect.value || null,
+                sectionId: sectionSelect.value || null,
+                subjectId: subjectSelect.value || null
+            });
+            render(); // Re-render dashboard with new filters
+        };
+
+        classSelect.onchange = updateContext;
+        sectionSelect.onchange = updateContext;
+        subjectSelect.onchange = updateContext;
+        return;
+    }
+
+    // === PUBLIC USERS: Hide everything ===
+    if (teacherInfoContainer) teacherInfoContainer.classList.add('hidden');
+}
+

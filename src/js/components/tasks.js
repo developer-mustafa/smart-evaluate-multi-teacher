@@ -75,10 +75,32 @@ export function init(dependencies) {
  */
 export function render() {
   if (!elements.page) return;
-  const tasks = stateManager.get('tasks');
   
-  // Filter for only upcoming tasks
-  const upcomingTasks = tasks.filter(task => _getTaskStatus(task) === 'upcoming');
+  _populateSelectors(); // Populate dropdowns with permission logic
+
+  const tasks = stateManager.get('tasks');
+  const user = stateManager.get('currentUserData');
+  
+  let filteredTasks = tasks;
+
+  // Filter for teachers - STRICT: only show tasks for assigned subjects
+  if (user && user.type === 'teacher') {
+      const teacher = stateManager.get('currentTeacher');
+      const assignedSubjects = teacher?.assignedSubjects || [];
+      // Teachers can ONLY see tasks for their assigned subjects
+      // Tasks without subjectId are NOT visible to teachers (admin-only tasks)
+      filteredTasks = tasks.filter(t => {
+          if (!t.subjectId) return false; // Hide tasks without subject from teachers
+          return assignedSubjects.includes(t.subjectId);
+      });
+  }
+
+  // Filter for only upcoming tasks (default view)
+  // Wait, the original code filtered for upcoming. 
+  // "Filter for only upcoming tasks" was: const upcomingTasks = tasks.filter(task => _getTaskStatus(task) === 'upcoming');
+  // I should probably keep that but apply it to the filtered list.
+  
+  const upcomingTasks = filteredTasks.filter(task => _getTaskStatus(task) === 'upcoming');
   
   _renderTasksList(upcomingTasks);
   // Reset add form breakdown fields to default when page renders
@@ -97,6 +119,9 @@ function _cacheDOMElements() {
   }
 
   elements.taskNameInput = elements.page.querySelector('#taskNameInput');
+  elements.taskClassInput = elements.page.querySelector('#taskClassInput');
+  elements.taskSectionInput = elements.page.querySelector('#taskSectionInput');
+  elements.taskSubjectInput = elements.page.querySelector('#taskSubjectInput');
 
   // Score Breakdown Inputs
   elements.maxTaskScoreInput = elements.page.querySelector('#maxTaskScoreInput');
@@ -121,6 +146,39 @@ function _cacheDOMElements() {
   if (elements.taskTimeInput && !elements.taskTimeInput.value) {
     elements.taskTimeInput.value = DEFAULT_TASK_TIME;
   }
+}
+
+function _populateSelectors() {
+    const classes = stateManager.get('classes') || [];
+    const sections = stateManager.get('sections') || [];
+    const subjects = stateManager.get('subjects') || [];
+    const user = stateManager.get('currentUserData');
+
+    let availableClasses = classes;
+    let availableSections = sections;
+    let availableSubjects = subjects;
+
+    // Filter for teachers - use currentTeacher for assignment data
+    if (user && user.type === 'teacher') {
+        const teacher = stateManager.get('currentTeacher');
+        const assignedClasses = teacher?.assignedClasses || [];
+        const assignedSections = teacher?.assignedSections || [];
+        const assignedSubjects = teacher?.assignedSubjects || [];
+        
+        if (assignedClasses.length > 0) {
+            availableClasses = classes.filter(c => assignedClasses.includes(c.id));
+        }
+        if (assignedSections.length > 0) {
+            availableSections = sections.filter(s => assignedSections.includes(s.id));
+        }
+        if (assignedSubjects.length > 0) {
+            availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
+        }
+    }
+
+    if (elements.taskClassInput) uiManager.populateSelect(elements.taskClassInput, availableClasses.map(c => ({ value: c.id, text: c.name })), 'ক্লাস নির্বাচন করুন');
+    if (elements.taskSectionInput) uiManager.populateSelect(elements.taskSectionInput, availableSections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন');
+    if (elements.taskSubjectInput) uiManager.populateSelect(elements.taskSubjectInput, availableSubjects.map(s => ({ value: s.id, text: s.name })), 'বিষয় নির্বাচন করুন');
 }
 
 /**
@@ -346,8 +404,9 @@ function _renderTasksList(tasks) {
                 ${statusBadge}
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                ?????: ${formattedDate} | ??? ???????? ?????: ${maxScoreText}
+                তারিখ: ${formattedDate} | মোট সর্বোচ্চ স্কোর: ${maxScoreText}
               </p>
+              ${task.subjectId ? `<p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">বিষয়: ${helpers.ensureBengaliText((stateManager.get('subjects') || []).find(s => s.id === task.subjectId)?.name || 'অজানা')}</p>` : ''}
               ${description}
             </div>
             <div class="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-end gap-2">
@@ -385,7 +444,10 @@ async function _handleAddTask() {
     return;
   }
 
-  const title = elements.taskTitleInput?.value.trim();
+  const title = elements.taskNameInput?.value.trim();
+  const classId = elements.taskClassInput?.value;
+  const sectionId = elements.taskSectionInput?.value;
+  const subjectId = elements.taskSubjectInput?.value;
   const description = elements.taskDescriptionInput?.value.trim();
   const dateInput = elements.taskDateInput?.value;
   const rawTimeValue = elements.taskTimeInput?.value;
@@ -402,15 +464,19 @@ async function _handleAddTask() {
   };
   const totalMaxScore = maxScores.task + maxScores.team + maxScores.additional + maxScores.mcq;
 
-  if (!name) {
+  if (!title) {
     uiManager.showToast('টাস্কের নাম আবশ্যক।', 'warning');
     return;
+  }
+  if (!subjectId) {
+      uiManager.showToast('বিষয় নির্বাচন করুন।', 'warning');
+      return;
   }
   if (totalMaxScore <= 0 || Object.values(maxScores).some((s) => s < 0)) {
     uiManager.showToast('সর্বোচ্চ স্কোরের প্রতিটি অংশ ০ বা তার বেশি হতে হবে এবং যোগফল ০ এর বেশি হতে হবে।', 'warning');
     return;
   }
-  if (!date) {
+  if (!dateInput) {
     uiManager.showToast('টাস্কের তারিখ নির্বাচন করুন।', 'warning');
     return;
   }
@@ -430,7 +496,10 @@ async function _handleAddTask() {
   }
 
   const newTaskData = {
-    name,
+    name: title,
+    classId,
+    sectionId,
+    subjectId,
     description,
     date: combinedDateTime || dateInput,
     scheduledTime: normalizedTime,
@@ -445,6 +514,9 @@ async function _handleAddTask() {
     await dataService.addTask(newTaskData);
     await app.refreshAllData();
     if (elements.taskNameInput) elements.taskNameInput.value = '';
+    if (elements.taskClassInput) elements.taskClassInput.value = '';
+    if (elements.taskSectionInput) elements.taskSectionInput.value = '';
+    if (elements.taskSubjectInput) elements.taskSubjectInput.value = '';
     _setBreakdownInputs(DEFAULT_SCORE_BREAKDOWN, ''); // Reset breakdown inputs
     if (elements.taskDescriptionInput) elements.taskDescriptionInput.value = '';
     if (elements.taskDateInput) elements.taskDateInput.value = '';
@@ -532,6 +604,13 @@ function _handleEditTask(taskId) {
             <div><label for="editTaskName" class="label">টাস্ক নাম*</label><input id="editTaskName" type="text" value="${
               task.name || ''
             }" class="form-input" maxlength="100"></div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div><label class="label">ক্লাস</label><select id="editTaskClass" class="form-select"></select></div>
+                <div><label class="label">শাখা</label><select id="editTaskSection" class="form-select"></select></div>
+                <div><label class="label">বিষয়</label><select id="editTaskSubject" class="form-select"></select></div>
+            </div>
+
             <fieldset class="border p-3 rounded dark:border-gray-600">
                  <legend class="text-sm font-medium px-1">সর্বোচ্চ স্কোর ব্রেকডাউন*</legend>
                  <div class="grid grid-cols-2 gap-3 mt-2">
@@ -567,6 +646,9 @@ function _handleEditTask(taskId) {
   uiManager.showEditModal('টাস্ক সম্পাদনা', contentHTML, async () => {
     // Save Callback
     const updatedName = document.getElementById('editTaskName')?.value.trim();
+    const updatedClassId = document.getElementById('editTaskClass')?.value;
+    const updatedSectionId = document.getElementById('editTaskSection')?.value;
+    const updatedSubjectId = document.getElementById('editTaskSubject')?.value;
     const updatedDescription = document.getElementById('editTaskDescription')?.value.trim();
     const updatedDate = document.getElementById('editTaskDate')?.value;
     const updatedTimeRaw = document.getElementById('editTaskTime')?.value;
@@ -609,6 +691,9 @@ function _handleEditTask(taskId) {
 
     const updatedData = {
       name: updatedName,
+      classId: updatedClassId,
+      sectionId: updatedSectionId,
+      subjectId: updatedSubjectId,
       description: updatedDescription,
       date: combinedUpdatedDate || updatedDate,
       scheduledTime: updatedTime,
@@ -638,6 +723,30 @@ function _handleEditTask(taskId) {
       input.oninput = () => _updateTotalMaxScoreDisplay('edit');
     });
     _updateTotalMaxScoreDisplay('edit'); // Initial total calc
+
+    // Populate Edit Modal Selects
+    const classes = stateManager.get('classes') || [];
+    const sections = stateManager.get('sections') || [];
+    const subjects = stateManager.get('subjects') || [];
+    const user = stateManager.get('currentUserData');
+
+    let availableClasses = classes;
+    let availableSections = sections;
+    let availableSubjects = subjects;
+
+    if (user && user.type === 'teacher') {
+        if (user.assignedClasses?.length) availableClasses = classes.filter(c => user.assignedClasses.includes(c.id));
+        if (user.assignedSections?.length) availableSections = sections.filter(s => user.assignedSections.includes(s.id));
+        if (user.assignedSubjects?.length) availableSubjects = subjects.filter(s => user.assignedSubjects.includes(s.id));
+    }
+
+    uiManager.populateSelect(document.getElementById('editTaskClass'), availableClasses.map(c => ({ value: c.id, text: c.name })), 'ক্লাস নির্বাচন করুন');
+    uiManager.populateSelect(document.getElementById('editTaskSection'), availableSections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন');
+    uiManager.populateSelect(document.getElementById('editTaskSubject'), availableSubjects.map(s => ({ value: s.id, text: s.name })), 'বিষয় নির্বাচন করুন');
+
+    if (task.classId) document.getElementById('editTaskClass').value = task.classId;
+    if (task.sectionId) document.getElementById('editTaskSection').value = task.sectionId;
+    if (task.subjectId) document.getElementById('editTaskSubject').value = task.subjectId;
   }
 }
 
@@ -704,12 +813,25 @@ async function _handleInlineStatusChange(selectEl) {
 /** Populates select dropdowns with task options */
 function populateTaskSelects(selectElementIds, defaultOptionText = 'টাস্ক নির্বাচন করুন') {
   const tasks = stateManager.get('tasks');
+  const user = stateManager.get('currentUserData');
+  
   if (!tasks) {
     console.warn('populateTaskSelects: Tasks not loaded yet.');
     return;
   }
 
-  const options = tasks
+  let filteredTasks = tasks;
+  if (user && user.type === 'teacher') {
+      const teacher = stateManager.get('currentTeacher');
+      const assignedSubjects = teacher?.assignedSubjects || [];
+      // STRICT: Teachers can only see tasks for their assigned subjects
+      filteredTasks = tasks.filter(t => {
+          if (!t.subjectId) return false; // Hide tasks without subject from teachers
+          return assignedSubjects.includes(t.subjectId);
+      });
+  }
+
+  const options = filteredTasks
     .map((t) => ({
       value: t.id,
       text: `${helpers.ensureBengaliText(t.name)} (${helpers.formatTimestamp(t.date) || 'N/A'})`,

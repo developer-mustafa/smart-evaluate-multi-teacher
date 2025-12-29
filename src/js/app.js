@@ -377,6 +377,12 @@ class SmartGroupEvaluator {
     if (pageId === 'class-management') return userType === 'super-admin';
     if (pageId === 'settings') return userType === 'admin' || userType === 'super-admin';
     if (pageId === 'public-settings') return true; // Allow any logged in user
+    
+    // Teacher Access Control
+    if (userType === 'teacher') {
+        return ['tasks', 'evaluation'].includes(pageId);
+    }
+
     return userType === 'admin' || userType === 'super-admin';
   }
 

@@ -248,28 +248,43 @@ class StateManager {
       return collection;
     }
     
-    // Teachers see filtered data based on activeContext
-    if (currentUserType === 'teacher' && this.state.currentTeacher) {
+    // Teachers see filtered data based on activeContext OR assigned data
+    if (currentUserType === 'teacher') {
       const context = this.state.activeContext;
+      const teacher = this.state.currentTeacher; // Use currentTeacher which has assignments!
+      const assignedClasses = teacher?.assignedClasses || [];
+      const assignedSections = teacher?.assignedSections || [];
+      const assignedSubjects = teacher?.assignedSubjects || [];
       
       return collection.filter(item => {
-        // Filter by teacherId if the item has it
+        // For tasks collection: strictly require subjectId
+        if (collectionName === 'tasks') {
+            if (!item.subjectId) return false; // Hide tasks without subject
+            if (context.subjectId && item.subjectId !== context.subjectId) return false;
+            if (!context.subjectId && assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
+            return true; // Tasks are filtered by subject only
+        }
+
+        // 1. Class Filter
+        if (item.classId) {
+            if (context.classId && item.classId !== context.classId) return false;
+            if (!context.classId && assignedClasses.length > 0 && !assignedClasses.includes(item.classId)) return false;
+        }
+
+        // 2. Section Filter
+        if (item.sectionId) {
+            if (context.sectionId && item.sectionId !== context.sectionId) return false;
+            if (!context.sectionId && assignedSections.length > 0 && !assignedSections.includes(item.sectionId)) return false;
+        }
+
+        // 3. Subject Filter
+        if (item.subjectId) {
+            if (context.subjectId && item.subjectId !== context.subjectId) return false;
+            if (!context.subjectId && assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
+        }
+        
+        // 4. Teacher ID Filter (if applicable, though usually class/subject is enough)
         if (item.teacherId && context.teacherId && item.teacherId !== context.teacherId) {
-          return false;
-        }
-        
-        // Filter by classId if context has it
-        if (context.classId && item.classId && item.classId !== context.classId) {
-          return false;
-        }
-        
-        // Filter by sectionId if context has it
-        if (context.sectionId && item.sectionId && item.sectionId !== context.sectionId) {
-          return false;
-        }
-        
-        // Filter by subjectId if context has it
-        if (context.subjectId && item.subjectId && item.subjectId !== context.subjectId) {
           return false;
         }
         

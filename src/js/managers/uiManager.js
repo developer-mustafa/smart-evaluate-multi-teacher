@@ -397,7 +397,7 @@ class UIManager {
     this.elements.logoutBtn?.classList.toggle('hidden', !isLoggedIn);
     this.elements.userInfo?.classList.toggle('hidden', !isLoggedIn);
     if (isLoggedIn && this.elements.userInfo) {
-      const roleMap = { 'super-admin': 'সুপার অ্যাডমিন', admin: 'অ্যাডমিন', user: 'ব্যবহারকারী' };
+      const roleMap = { 'super-admin': 'সুপার অ্যাডমিন', admin: 'অ্যাডমিন', teacher: 'শিক্ষক', user: 'ব্যবহারকারী' };
       const userInfoTextEl = this.elements.userInfo.querySelector('div');
       if (userInfoTextEl) userInfoTextEl.textContent = roleMap[userData?.type] || 'ব্যবহারকারী';
     } else if (this.elements.userInfo) {
@@ -408,6 +408,7 @@ class UIManager {
   enableNavigation(isLoggedIn, userType) {
     const isAdmin = userType === 'admin' || userType === 'super-admin';
     const isSuperAdmin = userType === 'super-admin';
+    const isTeacher = userType === 'teacher';
     const disabledClass = 'disabled-nav';
     
     // Query dynamically because settings.js might have changed classes
@@ -416,8 +417,15 @@ class UIManager {
       const page = tab.dataset.page;
       let enabled = false;
       if (isLoggedIn) {
-        if (page === 'admin-management') enabled = isSuperAdmin;
-        else enabled = isAdmin;
+        if (page === 'admin-management' || page === 'teacher-management' || page === 'class-management') {
+          enabled = isSuperAdmin;
+        } else if (page === 'tasks' || page === 'evaluation') {
+          // Teachers can access Task Management and Evaluation
+          enabled = isAdmin || isTeacher;
+        } else {
+          // Other private pages only for admins
+          enabled = isAdmin;
+        }
       }
       tab.disabled = !enabled;
       tab.classList.toggle(disabledClass, !enabled);
@@ -425,7 +433,7 @@ class UIManager {
 
     const dividers = document.querySelectorAll('.private-tab-divider');
     dividers.forEach((divider) => {
-      divider.classList.toggle('hidden', !isAdmin && !isSuperAdmin);
+      divider.classList.toggle('hidden', !isAdmin && !isSuperAdmin && !isTeacher);
     });
   }
   // --- DOM Render Helpers ---

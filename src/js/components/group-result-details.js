@@ -100,7 +100,25 @@
     const taskMap = new Map(state.tasks.map((t) => [t?.id, t]));
     const members = state.students.filter((s) => String(s?.groupId) === String(groupId));
     const memberIds = new Set(members.map((m) => String(m?.id)));
-    const evals = state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId));
+    
+    // Get current user and teacher data for filtering
+    const app = window.smartEvaluator;
+    const currentUser = app?.managers?.stateManager?.get?.('currentUserData');
+    const currentTeacher = app?.managers?.stateManager?.get?.('currentTeacher');
+    const isTeacher = currentUser?.type === 'teacher';
+    const assignedSubjects = isTeacher ? (currentTeacher?.assignedSubjects || []) : [];
+    
+    let evals = state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId));
+    
+    // Filter evaluations for teachers - only show tasks for assigned subjects
+    if (isTeacher && assignedSubjects.length > 0) {
+      evals = evals.filter((ev) => {
+        const task = taskMap.get(ev?.taskId);
+        // Only include evaluations where the task's subject is assigned to this teacher
+        return task && task.subjectId && assignedSubjects.includes(task.subjectId);
+      });
+      console.log('👨‍🏫 Teacher modal: Filtered evaluations from', state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId)).length, 'to', evals.length);
+    }
 
     const perEval = evals.map((ev) => {
       const task = taskMap.get(ev?.taskId);

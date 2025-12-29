@@ -499,12 +499,16 @@ function _refreshSidebarAuth() {
     }
 
     if (btn.classList.contains('private-tab')) {
-      if (isAdmin) {
+      const page = btn.dataset.page;
+      const isTeacher = currentUser && currentUser.type === 'teacher';
+      const isTeacherPage = page === 'tasks' || page === 'evaluation';
+
+      if (isAdmin || (isTeacher && isTeacherPage)) {
         btn.classList.remove('hidden');
         // console.log(`Showing private tab: ${btn.dataset.page}`);
       } else {
         btn.classList.add('hidden');
-        // console.log(`Hiding private tab (not admin): ${btn.dataset.page}`);
+        // console.log(`Hiding private tab (not admin/teacher): ${btn.dataset.page}`);
       }
     } else {
       btn.classList.remove('hidden');

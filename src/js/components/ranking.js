@@ -251,7 +251,26 @@ export function render() {
 
   uiManager.showLoading('র‍্যাঙ্কিং গণনা করা হচ্ছে...');
   try {
-    const { students, evaluations, tasks, groups, classes, sections } = stateManager.getState();
+    let students, evaluations, tasks, groups, classes, sections;
+    const user = stateManager.get('currentUserData');
+
+    if (user && user.type === 'teacher') {
+        students = stateManager.getFilteredData('students');
+        evaluations = stateManager.getFilteredData('evaluations');
+        tasks = stateManager.getFilteredData('tasks');
+        groups = stateManager.getFilteredData('groups');
+        classes = stateManager.get('classes'); // Classes/Sections usually don't need filtering for display context, but could be.
+        sections = stateManager.get('sections');
+    } else {
+        const state = stateManager.getState();
+        students = state.students;
+        evaluations = state.evaluations;
+        tasks = state.tasks;
+        groups = state.groups;
+        classes = state.classes;
+        sections = state.sections;
+    }
+
     if (!students || !evaluations || !tasks) {
       uiManager.displayEmptyMessage(elements.studentRankingListContainer, 'র‍্যাঙ্কিং গণনার জন্য ডেটা লোড হচ্ছে...');
       return;
