@@ -420,6 +420,14 @@
           </button>
 
           <button
+            data-page="data-migration"
+            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          >
+            <i class="fas fa-database w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <span class="flex-1 text-left text-sm font-medium">ডেটা মাইগ্রেশন</span>
+          </button>
+
+          <button
             data-page="settings"
             class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-gray-400"
           >
@@ -439,6 +447,9 @@
         class="flex-1 lg:ml-64 page-content transition-margin duration-300 ease-in-out px-4  overflow-y-auto"
       >
         <div id="appContainer" class="max-w-7xl mx-auto">
+          <!-- Data Migration Tool Page -->
+          <div id="page-data-migration" class="page hidden space-y-4 mt-6 lg:mt-0"></div>
+
           <div id="page-dashboard" class="page space-y-2 hidden mt-6 lg:mt-0">
 
             <!-- Elite Group (Top 3) -->
@@ -1714,5 +1725,6 @@
         </div>
       </div>
     </div>
+
   </body>
 </html>

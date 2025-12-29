@@ -30,6 +30,10 @@ const DEFAULT_SETTINGS = {
     members: { visible: true, type: 'private', label: 'শিক্ষার্থী ব্যবস্থাপনা', icon: 'fa-users' },
     tasks: { visible: true, type: 'private', label: 'টাস্ক ব্যবস্থাপনা', icon: 'fa-tasks' },
     evaluation: { visible: true, type: 'private', label: 'মূল্যায়ন', icon: 'fa-clipboard-check' },
+    'class-management': { visible: true, type: 'private', label: 'ক্লাস ব্যবস্থাপনা', icon: 'fa-school' },
+    'teacher-management': { visible: true, type: 'private', label: 'শিক্ষক ব্যবস্থাপনা', icon: 'fa-chalkboard-teacher' },
+    'data-migration': { visible: true, type: 'private', label: 'ডেটা মাইগ্রেশন', icon: 'fa-database' },
+    'admin-management': { visible: true, type: 'private', label: 'এডমিন ব্যবস্থাপনা', icon: 'fa-user-shield' },
     settings: { visible: true, type: 'private', label: 'সেটিংস', icon: 'fa-cog', locked: true },
   }
 };
@@ -62,11 +66,13 @@ function _mergeDefaults() {
     }
   });
 
-  // 2. Merge sidebar keys
+  // 2. Merge sidebar keys - FORCE ADD NEW ITEMS
   Object.keys(DEFAULT_SETTINGS.sidebar).forEach(key => {
     if (!_settings.sidebar[key]) {
+      // New item - add it
       _settings.sidebar[key] = DEFAULT_SETTINGS.sidebar[key];
     } else {
+      // Existing item - update properties
       // If locked, force defaults for critical properties
       if (DEFAULT_SETTINGS.sidebar[key].locked) {
         _settings.sidebar[key].locked = true;
@@ -74,8 +80,14 @@ function _mergeDefaults() {
         _settings.sidebar[key].type = DEFAULT_SETTINGS.sidebar[key].type; // Force type if locked
       }
       
+      // Always update label and icon from defaults
       _settings.sidebar[key].label = DEFAULT_SETTINGS.sidebar[key].label;
       _settings.sidebar[key].icon = DEFAULT_SETTINGS.sidebar[key].icon;
+      
+      // Preserve user's visibility preference unless locked
+      if (!DEFAULT_SETTINGS.sidebar[key].locked && _settings.sidebar[key].visible === undefined) {
+        _settings.sidebar[key].visible = DEFAULT_SETTINGS.sidebar[key].visible;
+      }
     }
   });
   
@@ -85,6 +97,9 @@ function _mergeDefaults() {
       _settings.dashboardSections[key] = DEFAULT_SETTINGS.dashboardSections[key];
     }
   });
+  
+  // Save merged settings to ensure new items persist
+  _saveSettings();
 }
 
 // --- FIX: Added export function render() wrapper here ---

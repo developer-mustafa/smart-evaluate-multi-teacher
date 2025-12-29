@@ -269,9 +269,55 @@ function populateSelects() {
   const sections = managers.stateManager.get('sections') || [];
   const subjects = managers.stateManager.get('subjects') || [];
 
+  // Populate classes (always show all)
   document.getElementById('selectClasses').innerHTML = classes.map(c => `<option value="${c.id}">${escape(c.name)}</option>`).join('');
-  document.getElementById('selectSections').innerHTML = sections.map(s => `<option value="${s.id}">${escape(s.name)}</option>`).join('');
-  document.getElementById('selectSubjects').innerHTML = subjects.map(s => `<option value="${s.id}">${escape(s.name)}</option>`).join('');
+  
+  // Initial population of sections and subjects (all)
+  updateSectionsAndSubjects();
+  
+  // Add change listener for dynamic filtering
+  const classSelect = document.getElementById('selectClasses');
+  if (classSelect) {
+    // Remove existing listener to avoid duplicates
+    const newClassSelect = classSelect.cloneNode(true);
+    classSelect.parentNode.replaceChild(newClassSelect, classSelect);
+    
+    // Add new listener
+    newClassSelect.addEventListener('change', updateSectionsAndSubjects);
+  }
+}
+
+function updateSectionsAndSubjects() {
+  const classSelect = document.getElementById('selectClasses');
+  const sectionSelect = document.getElementById('selectSections');
+  const subjectSelect = document.getElementById('selectSubjects');
+  
+  if (!classSelect || !sectionSelect || !subjectSelect) return;
+  
+  // Get selected class IDs
+  const selectedClassIds = Array.from(classSelect.selectedOptions).map(opt => opt.value);
+  
+  const allSections = managers.stateManager.get('sections') || [];
+  const allSubjects = managers.stateManager.get('subjects') || [];
+  
+  let filteredSections = allSections;
+  let filteredSubjects = allSubjects;
+  
+  // Filter sections and subjects if classes are selected
+  if (selectedClassIds.length > 0) {
+    filteredSections = allSections.filter(s => selectedClassIds.includes(s.classId));
+    filteredSubjects = allSubjects.filter(s => selectedClassIds.includes(s.classId));
+    
+    console.log('🔍 Filtered by classes:', selectedClassIds);
+    console.log('📋 Sections:', filteredSections.length, '/', allSections.length);
+    console.log('📚 Subjects:', filteredSubjects.length, '/', allSubjects.length);
+  }
+  
+  // Update sections dropdown
+  sectionSelect.innerHTML = filteredSections.map(s => `<option value="${s.id}">${escape(s.name)}</option>`).join('');
+  
+  // Update subjects dropdown
+  subjectSelect.innerHTML = filteredSubjects.map(s => `<option value="${s.id}">${escape(s.name)}</option>`).join('');
 }
 
 function setSelected(selectId, values) {
@@ -279,6 +325,11 @@ function setSelected(selectId, values) {
   Array.from(select.options).forEach(opt => {
     opt.selected = values.includes(opt.value);
   });
+  
+  // If setting classes, trigger filtering
+  if (selectId === 'selectClasses') {
+    updateSectionsAndSubjects();
+  }
 }
 
 function getSelected(selectId) {

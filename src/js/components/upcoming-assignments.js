@@ -34,6 +34,7 @@ const STATUS_META = {
 };
 
 const assignmentTabState = { active: 'upcoming' }; // all | upcoming | ongoing | completed
+const filterState = { classId: '', sectionId: '', subjectId: '' }; // Filter selections
 const TAB_ORDER = ['all', 'upcoming', 'ongoing', 'completed'];
 const TAB_META = {
   all: {
@@ -107,6 +108,12 @@ function _cacheDOMElements() {
     elements.filter.setAttribute('aria-hidden', 'true');
     elements.filter.style.display = 'none';
   }
+  
+  // Filter elements (will be populated after render)
+  elements.filtersContainer = null; // Will be set after render
+  elements.classFilter = null;
+  elements.sectionFilter = null;
+  elements.subjectFilter = null;
 }
 
 function _bindEvents() {
@@ -569,6 +576,14 @@ export function render() {
       tasks = stateManager.get('tasks') || [];
       evaluations = stateManager.get('evaluations') || [];
   }
+  
+  console.log('📋 Upcoming Assignments - Raw tasks:', tasks.length);
+  
+  // Apply admin filters (if any)
+  tasks = _applyFilters(tasks);
+  
+  console.log('📋 Upcoming Assignments - After filter:', tasks.length);
+  
   const assignmentNumberMap = _buildAssignmentNumberMap(tasks);
 
   // Normalize (with 10:20 rule) so status/ISO are correct
@@ -612,6 +627,7 @@ export function render() {
   }
 
   _renderSummary(normalized);
+  _setupFilters(); // Setup filters after summary is rendered
   _renderAssignments(normalized);
 
   _startCountdownTicker();
@@ -630,6 +646,21 @@ function _renderSummary(tasks) {
     ongoing: tasks.filter((t) => t.status === 'ongoing').length,
     completed: tasks.filter((t) => t.status === 'completed').length,
   };
+
+  // Filter dropdowns (will be shown/hidden based on user type)
+  const filtersHtml = `
+    <div id="upcomingAssignmentsFilters" class="hidden flex flex-wrap gap-2 items-center justify-center mb-4">
+      <select id="upcomingClassFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+        <option value="">সকল ক্লাস</option>
+      </select>
+      <select id="upcomingSectionFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+        <option value="">সকল শাখা</option>
+      </select>
+      <select id="upcomingSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+        <option value="">সকল বিষয়</option>
+      </select>
+    </div>
+  `;
 
   const tabsHtml = `
     <div class="ua-tabbar" role="tablist" aria-label="Assignment filter tabs">
@@ -654,7 +685,7 @@ function _renderSummary(tasks) {
     </div>
   `;
 
-  elements.summary.innerHTML = tabsHtml;
+  elements.summary.innerHTML = filtersHtml + tabsHtml;
 
   const buttons = elements.summary.querySelectorAll('[data-tab]');
   buttons.forEach((btn) => {
@@ -1025,4 +1056,183 @@ function _tickCountdowns() {
     const cls = _countdownClass(parts);
     wrap.className = cls;
   });
+}
+
+/* =========================
+   Filter System
+========================= */
+
+function _setupFilters() {
+  // Re-cache filter elements after render
+  elements.filtersContainer = document.getElementById('upcomingAssignmentsFilters');
+  elements.classFilter = document.getElementById('upcomingClassFilter');
+  elements.sectionFilter = document.getElementById('upcomingSectionFilter');
+  elements.subjectFilter = document.getElementById('upcomingSubjectFilter');
+
+  if (!elements.filtersContainer) return;
+
+  const user = stateManager.get('currentUserData');
+  const isTeacher = user && user.type === 'teacher';
+  const isAdmin = user ? (user.type === 'admin' || user.type === 'super-admin') : true;
+
+  // Teachers don't see filters (auto-filtered by stateManager.getFilteredData)
+  if (isTeacher) {
+    elements.filtersContainer.classList.add('hidden');
+    return;
+  }
+
+  // Admins/Public: Show and populate filters
+  if (isAdmin) {
+    elements.filtersContainer.classList.remove('hidden');
+
+    if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter) return;
+
+    // Get all data
+    const allClasses = stateManager.get('classes') || [];
+    const allSections = stateManager.get('sections') || [];
+    const allSubjects = stateManager.get('subjects') || [];
+
+    // Remove duplicates by name
+    const uniqueClasses = Array.from(new Map(allClasses.map(c => [c.name, c])).values());
+    const uniqueSections = Array.from(new Map(allSections.map(s => [s.name, s])).values());
+    const uniqueSubjects = Array.from(new Map(allSubjects.map(s => [s.name, s])).values());
+
+    // Populate dropdowns
+    uiManager.populateSelect(elements.classFilter, uniqueClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
+    uiManager.populateSelect(elements.sectionFilter, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
+    uiManager.populateSelect(elements.subjectFilter, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+
+    // Restore filter values from state
+    if (filterState.classId) elements.classFilter.value = filterState.classId;
+    if (filterState.sectionId) elements.sectionFilter.value = filterState.sectionId;
+    if (filterState.subjectId) elements.subjectFilter.value = filterState.subjectId;
+
+    // Add change listeners
+    elements.classFilter.onchange = _onFilterChange;
+    elements.sectionFilter.onchange = _onFilterChange;
+    elements.subjectFilter.onchange = _onFilterChange;
+  }
+}
+
+function _applyFilters(tasks) {
+  const user = stateManager.get('currentUserData');
+  const isTeacher = user && user.type === 'teacher';
+
+  // Teachers already get filtered data from stateManager.getFilteredData
+  if (isTeacher) return tasks;
+
+  // For admins/public, apply filter dropdown values
+  if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter) {
+    return tasks;
+  }
+
+  // Normalize filter values - "all" means no filter
+  const classId = filterState.classId === 'all' ? '' : filterState.classId;
+  const sectionId = filterState.sectionId === 'all' ? '' : filterState.sectionId;
+  const subjectId = filterState.subjectId === 'all' ? '' : filterState.subjectId;
+
+  // If no filters selected, return all tasks
+  if (!classId && !sectionId && !subjectId) {
+    console.log('📋 No filters selected, showing all tasks:', tasks.length);
+    return tasks;
+  }
+
+  // Get subjects data to check class/section relationships
+  const allSubjects = stateManager.get('subjects') || [];
+
+  // Filter tasks based on selected class/section/subject
+  const filtered = tasks.filter(task => {
+    const taskSubject = allSubjects.find(s => s.id === task.subjectId);
+    
+    // Debug: Log each task's filter-relevant fields
+    console.log(`🔍 Checking task: "${task.name}"`, {
+      taskId: task.id,
+      taskSubjectId: task.subjectId,
+      taskClassId: task.classId,
+      taskSectionId: task.sectionId,
+      subjectClassId: taskSubject?.classId,
+      subjectSectionId: taskSubject?.sectionId,
+      filterClassId: classId,
+      filterSectionId: sectionId,
+      filterSubjectId: subjectId
+    });
+    
+    // 1. Filter by Subject (direct match on task.subjectId)
+    if (subjectId) {
+      if (task.subjectId !== subjectId) {
+        console.log(`  ❌ Excluded: subjectId mismatch (${task.subjectId} !== ${subjectId})`);
+        return false;
+      }
+      // Subject matches! Continue to class/section check if those filters are set
+      console.log(`  ✅ Subject matched, checking class/section...`);
+    }
+    
+    // 2. Filter by Class
+    if (classId) {
+      // Option A: Task has direct classId - use it
+      if (task.classId) {
+        if (task.classId !== classId) {
+          console.log(`  ❌ Excluded: task.classId mismatch (${task.classId} !== ${classId})`);
+          return false;
+        }
+      } else {
+        // Option B: Check task's subject for classId
+        const taskSubject = allSubjects.find(s => s.id === task.subjectId);
+        console.log(`  📚 Subject check:`, { 
+          subjectFound: !!taskSubject, 
+          subjectClassId: taskSubject?.classId, 
+          filterClassId: classId 
+        });
+        if (taskSubject && taskSubject.classId) {
+          if (taskSubject.classId !== classId) {
+            console.log(`  ❌ Excluded: subject.classId mismatch (${taskSubject.classId} !== ${classId})`);
+            return false;
+          }
+        } else {
+          // STRICT: If neither task nor subject has classId, EXCLUDE when class filter is set
+          console.log(`  ❌ Excluded: no classId in task/subject (use Data Migration to fix)`);
+          return false;
+        }
+      }
+    }
+    
+    // 3. Filter by Section
+    if (sectionId) {
+      // Option A: Task has direct sectionId - use it
+      if (task.sectionId) {
+        if (task.sectionId !== sectionId) {
+          console.log(`  ❌ Excluded: task.sectionId mismatch (${task.sectionId} !== ${sectionId})`);
+          return false;
+        }
+      } else {
+        // Option B: Check task's subject for sectionId
+        const taskSubject = allSubjects.find(s => s.id === task.subjectId);
+        if (taskSubject && taskSubject.sectionId) {
+          if (taskSubject.sectionId !== sectionId) {
+            console.log(`  ❌ Excluded: subject.sectionId mismatch (${taskSubject.sectionId} !== ${sectionId})`);
+            return false;
+          }
+        }
+        // If neither task nor subject has sectionId, include the task (legacy data)
+      }
+    }
+    
+    console.log(`  ✅ INCLUDED in results`);
+    return true;
+  });
+
+  console.log('🔍 Filter applied:', { classId, sectionId, subjectId });
+  console.log('📊 Filtered tasks:', filtered.length, '/', tasks.length);
+  
+  return filtered;
+}
+
+function _onFilterChange() {
+  // Save filter state before re-rendering
+  if (elements.classFilter) filterState.classId = elements.classFilter.value;
+  if (elements.sectionFilter) filterState.sectionId = elements.sectionFilter.value;
+  if (elements.subjectFilter) filterState.subjectId = elements.subjectFilter.value;
+  
+  console.log('🔄 Filter changed:', filterState);
+  render();
 }

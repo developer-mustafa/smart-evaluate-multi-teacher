@@ -32,6 +32,7 @@ import * as studentFilter from './components/student-filter.js';
 import * as settings from './components/settings.js';
 import * as classManagement from './components/classManagement.js';
 import * as teacherManagement from './components/teacherManagement.js';
+import * as dataMigration from './components/dataMigration.js';
 
 /**
  * Main application class. Acts as the central controller/coordinator.
@@ -118,6 +119,7 @@ class SmartGroupEvaluator {
       this.components.settings = settings.init(dependencies);
       this.components.classManagement = classManagement.init(dependencies);
       this.components.teacherManagement = teacherManagement.init(dependencies);
+      this.components.dataMigration = dataMigration.init(dependencies);
       this.components.admin = admin.init(dependencies);
       this.components.exportModule = exportModule.init(dependencies);
       this.components.policy = policy.init(dependencies);
@@ -357,6 +359,8 @@ class SmartGroupEvaluator {
         return 'classManagement';
       case 'teacher-management':
         return 'teacherManagement';
+      case 'data-migration':
+        return 'dataMigration';
       case 'public-settings':
         return 'settings';
       // ---------------------

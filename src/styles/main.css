@@ -702,6 +702,18 @@ details[open] .prereq-summary-icon {
   background-color: #374151;
 }
 
+/* === Page Container Styles === */
+.page {
+  display: block;
+  visibility: visible;
+  width: 100%;
+  min-height: 100%;
+}
+
+.page.hidden {
+  display: none !important;
+}
+
 /* === Print Styles === */
 @media print {
   body {

@@ -290,6 +290,8 @@ export const batchUpdateStudents = async (studentIds, updateData) => {
 };
 export const deleteStudent = (id) => deleteDocument('students', id, CACHE_KEYS.STUDENTS);
 
+// Subjects
+export const updateSubject = (id, data) => updateDocument('subjects', id, data, CACHE_KEYS.SUBJECTS);
 export const deleteSubject = (id) => deleteDocument('subjects', id, CACHE_KEYS.SUBJECTS);
 
 // --- Teachers (Multi-Teacher System) ---
