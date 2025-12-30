@@ -333,13 +333,17 @@ class UIManager {
       console.error('showConfirmModal: confirmModal element not found.');
     }
   }
-  showEditModal(title, contentHTML, saveCallback) {
+  showEditModal(title, contentHTML, saveCallback, onOpenCallback) {
     if (this.elements.editModal) {
       if (this.elements.editModalTitle) this.elements.editModalTitle.textContent = title;
       if (this.elements.editModalContent) this.elements.editModalContent.innerHTML = contentHTML;
       else console.warn('showEditModal: editModalContent element not found.');
       this.onSaveEdit = saveCallback;
       this.showModal(this.elements.editModal);
+      
+      if (typeof onOpenCallback === 'function') {
+          onOpenCallback();
+      }
     } else {
       console.error('showEditModal: editModal element not found.');
     }

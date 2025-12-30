@@ -138,9 +138,9 @@ function _ensureTabStyles() {
   .ua-tabbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
     justify-content: center;
-    padding: 0.5rem;
+    padding: 0.25rem;
     background: transparent;
   }
   
@@ -148,9 +148,9 @@ function _ensureTabStyles() {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 1.2rem;
-    border-radius: 12px;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.2);
     background: rgba(255, 255, 255, 0.6);
     color: #475569;
@@ -158,7 +158,7 @@ function _ensureTabStyles() {
     transition: all 0.3s ease;
     backdrop-filter: blur(8px);
     overflow: hidden;
-    min-width: 160px;
+    min-width: 130px;
     flex: 1 1 auto;
   }
 
@@ -649,14 +649,14 @@ function _renderSummary(tasks) {
 
   // Filter dropdowns (will be shown/hidden based on user type)
   const filtersHtml = `
-    <div id="upcomingAssignmentsFilters" class="hidden flex flex-wrap gap-2 items-center justify-center mb-4">
-      <select id="upcomingClassFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+    <div id="upcomingAssignmentsFilters" class="hidden flex flex-wrap gap-1.5 items-center justify-center mb-2">
+      <select id="upcomingClassFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 px-2 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[100px]">
         <option value="">সকল ক্লাস</option>
       </select>
-      <select id="upcomingSectionFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+      <select id="upcomingSectionFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 px-2 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[100px]">
         <option value="">সকল শাখা</option>
       </select>
-      <select id="upcomingSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
+      <select id="upcomingSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 px-2 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[100px]">
         <option value="">সকল বিষয়</option>
       </select>
     </div>
@@ -767,6 +767,70 @@ function _assignmentCard(task) {
       <span class="sched-pill__value text-xs sm:text-sm">${dateLabel}</span>
     </span>
   `;
+  
+// Subject color palette for unique subject badges (Safe Colors & High Contrast)
+const SUBJECT_COLORS = [
+  'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-white dark:border-red-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-white dark:border-yellow-700',
+  'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-white dark:border-green-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-white dark:border-gray-600',
+];
+
+// Get consistent color for a subject based on its name
+function _getSubjectColor(subjectName) {
+  if (!subjectName) return SUBJECT_COLORS[0];
+  
+  // Predefined colors for common subjects to ensure distinctness
+  const lowerName = subjectName.trim().toLowerCase();
+  if (lowerName.includes('বাংলা') || lowerName.includes('bangla')) return SUBJECT_COLORS[0]; // Red/Rose
+  if (lowerName.includes('ইংরেজি') || lowerName.includes('english')) return SUBJECT_COLORS[5]; // Blue
+  if (lowerName.includes('গণিত') || lowerName.includes('math')) return SUBJECT_COLORS[1]; // Orange
+  if (lowerName.includes('আইসিটি') || lowerName.includes('ict') || lowerName.includes('তথ্য')) return SUBJECT_COLORS[4]; // Teal
+  if (lowerName.includes('বিজ্ঞান') || lowerName.includes('science')) return SUBJECT_COLORS[3]; // Green
+  if (lowerName.includes('ধর্ম') || lowerName.includes('religion') || lowerName.includes('ইসলাম')) return SUBJECT_COLORS[7]; // Purple
+  if (lowerName.includes('পদার্থ') || lowerName.includes('physics')) return SUBJECT_COLORS[8]; // Indigo
+  if (lowerName.includes('রসায়ন') || lowerName.includes('chemistry')) return SUBJECT_COLORS[2]; // Yellow/Amber
+  if (lowerName.includes('জীব') || lowerName.includes('biology')) return SUBJECT_COLORS[6]; // Pink/Fuchsia
+
+  let hash = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
+}
+
+  // Get Class, Section, Subject names
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  const subjects = stateManager.get('subjects') || [];
+  
+  const className = task.classId ? (classes.find(c => c.id === task.classId)?.name || '') : '';
+  const sectionName = task.sectionId ? (sections.find(s => s.id === task.sectionId)?.name || '') : '';
+  const subjectName = task.subjectId ? (subjects.find(s => s.id === task.subjectId)?.name || '') : '';
+  
+  // Get dynamic color for subject
+  const subjectColorClass = _getSubjectColor(subjectName);
+
+  // Build info badges
+  const infoBadges = `
+    <div class="flex flex-wrap gap-1.5 mt-2">
+      ${className ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+        <i class="fas fa-graduation-cap"></i> ${className}
+      </span>` : ''}
+      ${sectionName ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+        <i class="fas fa-layer-group"></i> ${sectionName}
+      </span>` : ''}
+      ${subjectName ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-semibold border ${subjectColorClass}">
+        <i class="fas fa-book"></i> ${subjectName}
+      </span>` : ''}
+    </div>
+  `;
 
   return `
     <article class="relative card-3d card-3d--bevel focusable flex flex-col sm:flex-row overflow-visible sm:overflow-hidden" tabindex="0" role="group" aria-label="${helpers.ensureBengaliText(
@@ -794,14 +858,18 @@ function _assignmentCard(task) {
             </div>
 
             <h4 class="text-xs sm:text-base font-semibold text-gray-900 dark:text-white mt-2">${task.name}</h4>
+            ${infoBadges}
           </div>
 
           <div class="flex sm:flex-col  gap-2 text-[10px] sm:text-base text-gray-600 dark:text-gray-300">
             <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]">
               <i class="fas fa-user-check text-blue-500"></i> অংশগ্রহণ: ${participantsLabel}
             </span>
+            <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]" title="ব্রেকডাউন: টাস্ক-${_bn(task.maxScoreBreakdown?.task ?? 0)}, টিম-${_bn(task.maxScoreBreakdown?.team ?? 0)}, অতিরিক্ত-${_bn(task.maxScoreBreakdown?.additional ?? 0)}, MCQ-${_bn(task.maxScoreBreakdown?.mcq ?? 0)}">
+              <i class="fas fa-star text-amber-500"></i> মোট: ${_bn(task.maxScore || 100)}
+            </span>
             <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]">
-              <i class="fas fa-clock text-purple-500"></i> সময়: ${task.startTimeLabel || 'সকাল ১১:৫৫ am'}
+              <i class="fas fa-clock text-purple-500"></i> সময়: ${task.startTimeLabel || 'সকাল ১১:৫৫ am'}
             </span>
           </div>
         </div>
@@ -926,6 +994,15 @@ function _normalizeTask(task, evaluations, assignmentNumberMap) {
       ? task.assignmentNumber
       : 0;
 
+  // Calculate total max score from breakdown or direct maxScore
+  const breakdown = task.maxScoreBreakdown || {};
+  const totalMaxScore = task.maxScoreBreakdown
+    ? (parseFloat(breakdown.task) || 0) +
+      (parseFloat(breakdown.team) || 0) +
+      (parseFloat(breakdown.additional) || 0) +
+      (parseFloat(breakdown.mcq) || 0)
+    : parseFloat(task.maxScore) || 100;
+
   return {
     id: task.id,
     name: helpers.ensureBengaliText(task.name || 'অজ্ঞাত এসাইনমেন্ট'),
@@ -939,6 +1016,16 @@ function _normalizeTask(task, evaluations, assignmentNumberMap) {
     assignmentNumber: derivedNumber,
     dateISO: adjusted ? adjusted.toISOString() : '',
     _dateObj: adjusted,
+    // Include class, section, subject for filtering and display
+    classId: task.classId || '',
+    sectionId: task.sectionId || '',
+    subjectId: task.subjectId || '',
+    className: (stateManager.get('classes') || []).find(c => c.id === task.classId)?.name || '',
+    sectionName: (stateManager.get('sections') || []).find(s => s.id === task.sectionId)?.name || '',
+    subjectName: (stateManager.get('subjects') || []).find(s => s.id === task.subjectId)?.name || '',
+    // Include max score for display
+    maxScore: totalMaxScore,
+    maxScoreBreakdown: breakdown,
   };
 }
 
@@ -1097,10 +1184,10 @@ function _setupFilters() {
     const uniqueSections = Array.from(new Map(allSections.map(s => [s.name, s])).values());
     const uniqueSubjects = Array.from(new Map(allSubjects.map(s => [s.name, s])).values());
 
-    // Populate dropdowns
+    // Populate dropdowns (Use Name as value for Section/Subject to handle deduplication)
     uiManager.populateSelect(elements.classFilter, uniqueClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
-    uiManager.populateSelect(elements.sectionFilter, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
-    uiManager.populateSelect(elements.subjectFilter, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+    uiManager.populateSelect(elements.sectionFilter, uniqueSections.map(s => ({ value: s.name, text: s.name })), 'সকল শাখা');
+    uiManager.populateSelect(elements.subjectFilter, uniqueSubjects.map(s => ({ value: s.name, text: s.name })), 'সকল বিষয়');
 
     // Restore filter values from state
     if (filterState.classId) elements.classFilter.value = filterState.classId;
@@ -1121,15 +1208,10 @@ function _applyFilters(tasks) {
   // Teachers already get filtered data from stateManager.getFilteredData
   if (isTeacher) return tasks;
 
-  // For admins/public, apply filter dropdown values
-  if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter) {
-    return tasks;
-  }
-
-  // Normalize filter values - "all" means no filter
-  const classId = filterState.classId === 'all' ? '' : filterState.classId;
-  const sectionId = filterState.sectionId === 'all' ? '' : filterState.sectionId;
-  const subjectId = filterState.subjectId === 'all' ? '' : filterState.subjectId;
+  // Normalize filter values - empty string or "all" means no filter
+  const classId = (filterState.classId && filterState.classId !== 'all') ? filterState.classId : '';
+  const sectionId = (filterState.sectionId && filterState.sectionId !== 'all') ? filterState.sectionId : '';
+  const subjectId = (filterState.subjectId && filterState.subjectId !== 'all') ? filterState.subjectId : '';
 
   // If no filters selected, return all tasks
   if (!classId && !sectionId && !subjectId) {
@@ -1137,91 +1219,54 @@ function _applyFilters(tasks) {
     return tasks;
   }
 
-  // Get subjects data to check class/section relationships
-  const allSubjects = stateManager.get('subjects') || [];
+  // Note: sectionId and subjectId now hold NAMES, not IDs (for deduplication support)
+  const selectedSectionName = (sectionId || '').trim().toLowerCase().normalize('NFC');
+  const selectedSubjectName = (subjectId || '').trim().toLowerCase().normalize('NFC');
 
-  // Filter tasks based on selected class/section/subject
+  console.log('🔍 Filter values:', { classId, selectedSectionName, selectedSubjectName });
+
+  // Filter tasks
   const filtered = tasks.filter(task => {
-    const taskSubject = allSubjects.find(s => s.id === task.subjectId);
-    
-    // Debug: Log each task's filter-relevant fields
-    console.log(`🔍 Checking task: "${task.name}"`, {
-      taskId: task.id,
-      taskSubjectId: task.subjectId,
-      taskClassId: task.classId,
-      taskSectionId: task.sectionId,
-      subjectClassId: taskSubject?.classId,
-      subjectSectionId: taskSubject?.sectionId,
-      filterClassId: classId,
-      filterSectionId: sectionId,
-      filterSubjectId: subjectId
-    });
-    
-    // 1. Filter by Subject (direct match on task.subjectId)
-    if (subjectId) {
-      if (task.subjectId !== subjectId) {
-        console.log(`  ❌ Excluded: subjectId mismatch (${task.subjectId} !== ${subjectId})`);
-        return false;
-      }
-      // Subject matches! Continue to class/section check if those filters are set
-      console.log(`  ✅ Subject matched, checking class/section...`);
+    // 1. Filter by Class (direct ID match)
+    if (classId && String(task.classId) !== String(classId)) {
+      return false;
     }
     
-    // 2. Filter by Class
-    if (classId) {
-      // Option A: Task has direct classId - use it
-      if (task.classId) {
-        if (task.classId !== classId) {
-          console.log(`  ❌ Excluded: task.classId mismatch (${task.classId} !== ${classId})`);
+    // 2. Filter by Section (Name match)
+    if (selectedSectionName) {
+        let taskSectionName = task.sectionName?.trim().toLowerCase() || '';
+        
+        // Safety: If name missing in task, try to look it up
+        if (!taskSectionName && task.sectionId) {
+           const allSections = stateManager.get('sections') || [];
+           const s = allSections.find(sec => String(sec.id) === String(task.sectionId));
+           if (s) taskSectionName = s.name.trim().toLowerCase();
+        }
+
+        if (!taskSectionName || taskSectionName !== selectedSectionName) {
           return false;
         }
-      } else {
-        // Option B: Check task's subject for classId
-        const taskSubject = allSubjects.find(s => s.id === task.subjectId);
-        console.log(`  📚 Subject check:`, { 
-          subjectFound: !!taskSubject, 
-          subjectClassId: taskSubject?.classId, 
-          filterClassId: classId 
-        });
-        if (taskSubject && taskSubject.classId) {
-          if (taskSubject.classId !== classId) {
-            console.log(`  ❌ Excluded: subject.classId mismatch (${taskSubject.classId} !== ${classId})`);
-            return false;
-          }
-        } else {
-          // STRICT: If neither task nor subject has classId, EXCLUDE when class filter is set
-          console.log(`  ❌ Excluded: no classId in task/subject (use Data Migration to fix)`);
-          return false;
-        }
-      }
     }
     
-    // 3. Filter by Section
-    if (sectionId) {
-      // Option A: Task has direct sectionId - use it
-      if (task.sectionId) {
-        if (task.sectionId !== sectionId) {
-          console.log(`  ❌ Excluded: task.sectionId mismatch (${task.sectionId} !== ${sectionId})`);
+    // 3. Filter by Subject (Name match)
+    if (selectedSubjectName) {
+        let taskSubjectName = (task.subjectName || '').trim().toLowerCase().normalize('NFC');
+        
+        // Safety: If name missing in task, try to look it up
+        if (!taskSubjectName && task.subjectId) {
+           const allSubjects = stateManager.get('subjects') || [];
+           const s = allSubjects.find(sub => String(sub.id) === String(task.subjectId));
+           if (s) taskSubjectName = s.name.trim().toLowerCase().normalize('NFC');
+        }
+
+        if (!taskSubjectName || taskSubjectName !== selectedSubjectName) {
           return false;
         }
-      } else {
-        // Option B: Check task's subject for sectionId
-        const taskSubject = allSubjects.find(s => s.id === task.subjectId);
-        if (taskSubject && taskSubject.sectionId) {
-          if (taskSubject.sectionId !== sectionId) {
-            console.log(`  ❌ Excluded: subject.sectionId mismatch (${taskSubject.sectionId} !== ${sectionId})`);
-            return false;
-          }
-        }
-        // If neither task nor subject has sectionId, include the task (legacy data)
-      }
     }
     
-    console.log(`  ✅ INCLUDED in results`);
     return true;
   });
 
-  console.log('🔍 Filter applied:', { classId, sectionId, subjectId });
   console.log('📊 Filtered tasks:', filtered.length, '/', tasks.length);
   
   return filtered;

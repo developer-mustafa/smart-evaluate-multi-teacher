@@ -761,16 +761,11 @@
           <div id="page-groups" class="page private-tab-content space-y-6 hidden mt-6 lg:mt-0">
             <h2 class="text-2xl font-bold mb-4">গ্রুপ ব্যবস্থাপনা</h2>
             <div class="card card-body">
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input
-                  id="groupNameInput"
-                  type="text"
-                  placeholder="নতুন গ্রুপের নাম"
-                  class="form-input flex-grow"
-                  maxlength="50"
-                  aria-label="New group name"
-                />
-                <button id="addGroupBtn" class="btn btn-primary flex-shrink-0">গ্রুপ যোগ করুন</button>
+              <div class="flex justify-end">
+                <button id="addGroupBtn" class="btn btn-primary">
+                  <i class="fas fa-plus mr-2"></i>
+                  নতুন গ্রুপ তৈরি করুন
+                </button>
               </div>
             </div>
             <div class="card">
@@ -1054,6 +1049,26 @@
             <div class="card">
               <div class="card-header">মূল্যায়ন সেটআপ</div>
               <div class="card-body space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="label">ক্লাস</label>
+                    <select id="evaluationClassSelect" class="form-select">
+                      <option value="">সকল ক্লাস</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">শাখা</label>
+                    <select id="evaluationSectionSelect" class="form-select">
+                      <option value="">সকল শাখা</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">বিষয়</label>
+                    <select id="evaluationSubjectSelect" class="form-select">
+                      <option value="">সকল বিষয়</option>
+                    </select>
+                  </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="label">টাস্ক নির্বাচন করুন*</label>
@@ -1100,11 +1115,7 @@
 
           <div id="page-upcoming-assignments" class="page hidden space-y-2 mt-6 lg:mt-0">
             <div class="flex flex-col gap-3">
-              <div>
-
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">আপকামিং এসাইনমেন্ট</h2>
-              
-              </div>
+             
               <div class="hidden">
                 <label for="assignmentStatusFilter" class="text-sm font-medium text-gray-700 dark:text-gray-300">
                  স্ট্যাটাস ফিল্টার করুন:

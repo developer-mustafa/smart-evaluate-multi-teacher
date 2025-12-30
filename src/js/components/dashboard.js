@@ -78,17 +78,37 @@ export function render() {
       if (activeContext.classId || activeContext.sectionId || activeContext.subjectId) {
         console.log('🔧 Admin mode: Applying activeContext filters:', activeContext);
         
-        // Filter students by class and section
+        // Get lookup data for name-based matching
+        const allSections = stateManager.get('sections') || [];
+        const allSubjects = stateManager.get('subjects') || [];
+        
+        // Get selected section/subject names
+        const selectedSection = allSections.find(s => s.id === activeContext.sectionId);
+        const selectedSubject = allSubjects.find(s => s.id === activeContext.subjectId);
+        const selectedSectionName = selectedSection?.name?.trim() || '';
+        const selectedSubjectName = selectedSubject?.name?.trim() || '';
+        
+        // Filter students by class (direct ID match)
         if (activeContext.classId) {
           students = students.filter(s => s.classId === activeContext.classId);
         }
-        if (activeContext.sectionId) {
-          students = students.filter(s => s.sectionId === activeContext.sectionId);
+        
+        // Filter students by section (name-based matching)
+        if (activeContext.sectionId && selectedSectionName) {
+          students = students.filter(s => {
+            if (!s.sectionId) return false;
+            const studentSection = allSections.find(sec => sec.id === s.sectionId);
+            return studentSection?.name?.trim() === selectedSectionName;
+          });
         }
         
-        // Filter tasks by subject
-        if (activeContext.subjectId) {
-          tasks = tasks.filter(t => t.subjectId === activeContext.subjectId);
+        // Filter tasks by subject (name-based matching)
+        if (activeContext.subjectId && selectedSubjectName) {
+          tasks = tasks.filter(t => {
+            if (!t.subjectId) return false;
+            const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
+            return taskSubject?.name?.trim() === selectedSubjectName;
+          });
         }
         
         // Filter groups to only those containing filtered students
@@ -961,17 +981,37 @@ function _updateDashboardForTask(taskId) {
   if (currentUserType !== 'teacher' && (activeContext.classId || activeContext.sectionId || activeContext.subjectId)) {
     console.log('🔧 Admin filter: Applying activeContext to task view:', activeContext);
     
-    // Filter students by class and section
+    // Get lookup data for name-based matching
+    const allSections = stateManager.get('sections') || [];
+    const allSubjects = stateManager.get('subjects') || [];
+    
+    // Get selected section/subject names
+    const selectedSection = allSections.find(s => s.id === activeContext.sectionId);
+    const selectedSubject = allSubjects.find(s => s.id === activeContext.subjectId);
+    const selectedSectionName = selectedSection?.name?.trim() || '';
+    const selectedSubjectName = selectedSubject?.name?.trim() || '';
+    
+    // Filter students by class (direct ID match)
     if (activeContext.classId) {
       students = students.filter(s => s.classId === activeContext.classId);
     }
-    if (activeContext.sectionId) {
-      students = students.filter(s => s.sectionId === activeContext.sectionId);
+    
+    // Filter students by section (name-based matching)
+    if (activeContext.sectionId && selectedSectionName) {
+      students = students.filter(s => {
+        if (!s.sectionId) return false;
+        const studentSection = allSections.find(sec => sec.id === s.sectionId);
+        return studentSection?.name?.trim() === selectedSectionName;
+      });
     }
     
-    // Filter tasks by subject
-    if (activeContext.subjectId) {
-      tasks = tasks.filter(t => t.subjectId === activeContext.subjectId);
+    // Filter tasks by subject (name-based matching)
+    if (activeContext.subjectId && selectedSubjectName) {
+      tasks = tasks.filter(t => {
+        if (!t.subjectId) return false;
+        const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
+        return taskSubject?.name?.trim() === selectedSubjectName;
+      });
     }
     
     // Filter groups to only those containing filtered students

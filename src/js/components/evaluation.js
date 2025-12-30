@@ -115,6 +115,9 @@ function _cacheDOMElements() {
   if (elements.page) {
     elements.evaluationTaskSelect = elements.page.querySelector('#evaluationTaskSelect');
     elements.evaluationGroupSelect = elements.page.querySelector('#evaluationGroupSelect');
+    elements.evaluationClassSelect = elements.page.querySelector('#evaluationClassSelect');
+    elements.evaluationSectionSelect = elements.page.querySelector('#evaluationSectionSelect');
+    elements.evaluationSubjectSelect = elements.page.querySelector('#evaluationSubjectSelect');
     elements.startEvaluationBtn = elements.page.querySelector('#startEvaluationBtn');
     elements.dashboardConfigContainer = elements.page.querySelector('#dashboardConfigContainer'); // Add this
     elements.evaluationFormContainer = elements.page.querySelector('#evaluationForm');
@@ -130,6 +133,21 @@ function _cacheDOMElements() {
  */
 function _setupEventListeners() {
   if (!elements.page) return;
+  
+  // Filter change listeners
+  if (elements.evaluationClassSelect) {
+      uiManager.addListener(elements.evaluationClassSelect, 'change', () => {
+          _updateDependentFilters();
+          _filterEvaluationOptions();
+      });
+  }
+  if (elements.evaluationSectionSelect) {
+      uiManager.addListener(elements.evaluationSectionSelect, 'change', _filterEvaluationOptions);
+  }
+  if (elements.evaluationSubjectSelect) {
+      uiManager.addListener(elements.evaluationSubjectSelect, 'change', _filterEvaluationOptions);
+  }
+
   uiManager.addListener(elements.startEvaluationBtn, 'click', _handleStartOrEditEvaluation);
   uiManager.addListener(elements.evaluationFormContainer, 'submit', (e) => {
     if (e.target && e.target.id === 'dynamicEvaluationForm') {
@@ -164,21 +182,292 @@ function _setupEventListeners() {
  */
 function _populateSelectors() {
   console.log('📋 Populating evaluation selectors...');
-  if (tasksComponent?.populateTaskSelects) {
-    tasksComponent.populateTaskSelects(['evaluationTaskSelect'], 'টাস্ক নির্বাচন করুন');
+  
+  // Populate Filter Dropdowns (Class, Section, Subject)
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  const subjects = stateManager.get('subjects') || [];
+  const user = stateManager.get('currentUserData');
+  
+  let availableClasses = classes;
+  let availableSections = sections;
+  let availableSubjects = subjects;
+
+  // Teacher Restriction Logic
+  if (user && user.type === 'teacher') {
+      const teacher = stateManager.get('currentTeacher');
+      const assignedClasses = teacher?.assignedClasses || [];
+      const assignedSections = teacher?.assignedSections || [];
+      const assignedSubjects = teacher?.assignedSubjects || [];
+      
+      if (assignedClasses.length > 0) availableClasses = classes.filter(c => assignedClasses.includes(c.id));
+      if (assignedSections.length > 0) availableSections = sections.filter(s => assignedSections.includes(s.id));
+      if (assignedSubjects.length > 0) availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
   }
-  if (app.components.groups?.populateGroupSelects) {
-    console.log('📋 Calling populateGroupSelects for evaluation...');
-    const groups = stateManager.get('groups');
+
+  if (elements.evaluationClassSelect) uiManager.populateSelect(elements.evaluationClassSelect, availableClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
+  
+  // Initial population of dependent filters
+  _updateDependentFilters();
+  
+  // Initial population of Task and Group (will be filtered by default "All")
+  _filterEvaluationOptions();
+}
+
+/**
+ * Updates Section and Subject dropdowns based on selected Class.
+ * Ensures no duplicates and only relevant options are shown.
+ * @private
+ */
+function _updateDependentFilters() {
+    const selectedClassId = elements.evaluationClassSelect?.value;
+    const sections = stateManager.get('sections') || [];
+    const subjects = stateManager.get('subjects') || [];
+    const tasks = stateManager.get('tasks') || [];
     const user = stateManager.get('currentUserData');
-    const teacher = stateManager.get('currentTeacher');
-    console.log('Groups available:', groups?.length || 0);
-    console.log('User type:', user?.type);
-    console.log('Teacher data:', teacher);
-    app.components.groups.populateGroupSelects(['evaluationGroupSelect'], 'গ্রুপ নির্বাচন করুন');
-  }
-  if (elements.evaluationTaskSelect?.options[0]) elements.evaluationTaskSelect.options[0].disabled = true;
-  if (elements.evaluationGroupSelect?.options[0]) elements.evaluationGroupSelect.options[0].disabled = true;
+
+    let availableSections = sections;
+    let availableSubjects = subjects;
+
+    // Teacher Restriction Base
+    if (user && user.type === 'teacher') {
+        const teacher = stateManager.get('currentTeacher');
+        const assignedSections = teacher?.assignedSections || [];
+        const assignedSubjects = teacher?.assignedSubjects || [];
+        
+        if (assignedSections.length > 0) availableSections = sections.filter(s => assignedSections.includes(s.id));
+        if (assignedSubjects.length > 0) availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
+    }
+
+    if (selectedClassId) {
+        // Filter Sections: Show sections that have STUDENTS or GROUPS in this class
+        const students = stateManager.get('students') || [];
+        const groups = stateManager.get('groups') || [];
+        
+        const sectionsInClass = new Set();
+        
+        // Check students
+        students.forEach(s => {
+            if (s.classId === selectedClassId && s.sectionId) sectionsInClass.add(s.sectionId);
+        });
+        
+        // Check groups (some groups might be section-specific)
+        groups.forEach(g => {
+            if (g.classId === selectedClassId && g.sectionId) sectionsInClass.add(g.sectionId);
+        });
+
+        // Also check Tasks (tasks might be assigned to specific sections)
+        tasks.forEach(t => {
+            if (t.classId === selectedClassId && t.sectionId) sectionsInClass.add(t.sectionId);
+        });
+
+        if (sectionsInClass.size > 0) {
+            availableSections = availableSections.filter(s => sectionsInClass.has(s.id));
+        } else {
+            // If no data found for this class, maybe show none or all? 
+            // Professional approach: Show all if no specific data restricts it, OR show none if we are strict.
+            // Let's show all as a fallback to allow creating new data if needed? 
+            // No, this is Evaluation, we only evaluate EXISTING data. So showing none or strict filter is better.
+            // But if it's a new class with no students yet, we can't evaluate anyway.
+            // Let's stick to the filter.
+             availableSections = availableSections.filter(s => sectionsInClass.has(s.id));
+        }
+        
+        // Filter Subjects: Show only subjects that have TASKS for this class
+        const subjectsInClassTasks = new Set(
+            tasks.filter(t => t.classId === selectedClassId).map(t => t.subjectId)
+        );
+        availableSubjects = availableSubjects.filter(s => subjectsInClassTasks.has(s.id));
+    }
+
+    // Populate with current selection preservation
+    const currentSection = elements.evaluationSectionSelect?.value;
+    const currentSubject = elements.evaluationSubjectSelect?.value;
+
+    if (elements.evaluationSectionSelect) {
+        // Deduplicate sections by name to prevent duplicates in UI
+        const uniqueSections = [];
+        const seenSectionNames = new Set();
+        availableSections.forEach(s => {
+            const name = s.name ? s.name.trim() : '';
+            if (name && !seenSectionNames.has(name)) {
+                seenSectionNames.add(name);
+                uniqueSections.push(s);
+            }
+        });
+
+        uiManager.populateSelect(elements.evaluationSectionSelect, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
+        if (currentSection && uniqueSections.some(s => s.id === currentSection)) {
+            elements.evaluationSectionSelect.value = currentSection;
+        }
+    }
+
+    if (elements.evaluationSubjectSelect) {
+        // Deduplicate subjects by name
+        const uniqueSubjects = [];
+        const seenSubjectNames = new Set();
+        availableSubjects.forEach(s => {
+            const name = s.name ? s.name.trim() : '';
+            if (name && !seenSubjectNames.has(name)) {
+                seenSubjectNames.add(name);
+                uniqueSubjects.push(s);
+            }
+        });
+
+        uiManager.populateSelect(elements.evaluationSubjectSelect, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+        if (currentSubject && uniqueSubjects.some(s => s.id === currentSubject)) {
+            elements.evaluationSubjectSelect.value = currentSubject;
+        }
+    }
+}
+
+/**
+ * Filters Task and Group options based on selected Class, Section, and Subject.
+ * @private
+ */
+function _filterEvaluationOptions() {
+    const selectedClassId = elements.evaluationClassSelect?.value;
+    const selectedSectionId = elements.evaluationSectionSelect?.value;
+    const selectedSubjectId = elements.evaluationSubjectSelect?.value;
+
+    const tasks = stateManager.get('tasks') || [];
+    const groups = stateManager.get('groups') || [];
+    const user = stateManager.get('currentUserData');
+
+    // 1. Filter Tasks
+    let filteredTasks = tasks;
+    
+    // Teacher Restriction for Tasks
+    if (user && user.type === 'teacher') {
+        const teacher = stateManager.get('currentTeacher');
+        const assignedSubjects = teacher?.assignedSubjects || [];
+        filteredTasks = filteredTasks.filter(t => t.subjectId && assignedSubjects.includes(t.subjectId));
+    }
+
+    // Apply Dropdown Filters to Tasks
+    console.log('📋 Evaluation Filter - Start:', { 
+        totalTasks: tasks.length, 
+        selectedClassId, 
+        selectedSectionId, 
+        selectedSubjectId 
+    });
+    
+    if (selectedClassId) {
+        filteredTasks = filteredTasks.filter(t => t.classId === selectedClassId);
+        console.log('📋 After class filter:', filteredTasks.length);
+    }
+    if (selectedSectionId) {
+        // Section filter should match by section name due to deduplication
+        const sections = stateManager.get('sections') || [];
+        const selectedSection = sections.find(s => s.id === selectedSectionId);
+        if (selectedSection) {
+            filteredTasks = filteredTasks.filter(t => {
+                if (!t.sectionId) return true; // Tasks without section are available to all
+                const taskSection = sections.find(s => s.id === t.sectionId);
+                return taskSection && taskSection.name === selectedSection.name;
+            });
+        } else {
+            filteredTasks = filteredTasks.filter(t => !t.sectionId || t.sectionId === selectedSectionId);
+        }
+        console.log('📋 After section filter:', filteredTasks.length);
+    }
+    if (selectedSubjectId) {
+        filteredTasks = filteredTasks.filter(t => t.subjectId === selectedSubjectId);
+        console.log('📋 After subject filter:', filteredTasks.length);
+    }
+    
+    console.log('📋 Final filtered tasks:', filteredTasks.map(t => ({ name: t.name, classId: t.classId, sectionId: t.sectionId, subjectId: t.subjectId })));
+
+    // 2. Filter Groups
+    let filteredGroups = groups;
+    
+    // Teacher Restriction for Groups
+    // User Note: "Group gulo kintu nirdisto class er jonno universal... eki class er jekono sakha ba bishoy er shikkhok... access pabe"
+    // Meaning: If a teacher has access to Class X, they should see ALL groups of Class X, regardless of section assignment.
+    
+    if (user && user.type === 'teacher') {
+         const teacher = stateManager.get('currentTeacher');
+         const assignedClasses = teacher?.assignedClasses || [];
+         
+         // Only filter by Class access. 
+         // If teacher is assigned to Class 6, they see all Class 6 groups.
+         if(assignedClasses.length > 0) {
+             filteredGroups = filteredGroups.filter(g => assignedClasses.includes(g.classId));
+         }
+    }
+
+    // Apply Dropdown Filters to Groups
+    if (selectedClassId) filteredGroups = filteredGroups.filter(g => g.classId === selectedClassId);
+    
+    // IMPORTANT: User said groups are universal for the class.
+    // So we should NOT filter groups by Section if the user selects a section for filtering Tasks.
+    // However, if the group ITSELF is defined with a sectionId, maybe we should?
+    // "Universal" implies they might span sections or be independent. 
+    // But usually groups are formed within a class. 
+    // If I filter by section, and groups are cross-section, I might hide them.
+    // Let's LISTEN to the user: "Universal for specific class".
+    // So, I will NOT filter groups by Section ID from the dropdown, UNLESS the group strictly belongs to that section.
+    // But to be safe and follow "Universal", let's show all groups of that Class.
+    
+    // Actually, if a group is created with a sectionId, it belongs to that section.
+    // If the dropdown selects Section A, should we show Group of Section B? Probably not.
+    // But if the group has NO sectionId (global to class), we show it.
+    
+    if (selectedSectionId) {
+        const allSections = stateManager.get('sections') || [];
+        const selectedSection = allSections.find(s => s.id === selectedSectionId);
+        const selectedSectionName = selectedSection?.name?.trim().toLowerCase();
+
+        filteredGroups = filteredGroups.filter(g => {
+            if (!g.sectionId) return true; // Universal group
+            
+            // Check direct ID match first
+            if (g.sectionId === selectedSectionId) return true;
+            
+            // Fallback to name match
+            if (selectedSectionName) {
+                const groupSection = allSections.find(s => s.id === g.sectionId);
+                const groupSectionName = groupSection?.name?.trim().toLowerCase();
+                return groupSectionName === selectedSectionName;
+            }
+            
+            return false;
+        });
+    }
+
+    // 3. Populate Selects
+    // Populate Tasks
+    const taskOptions = filteredTasks
+        .map(t => {
+            let dateStr = '';
+            try {
+                if (t.date) {
+                    if (typeof t.date === 'string') dateStr = t.date;
+                    else if (typeof t.date.toDate === 'function') dateStr = t.date.toDate().toISOString();
+                    else if (t.date instanceof Date) dateStr = t.date.toISOString();
+                }
+            } catch (e) { console.warn('Date conversion error', e); }
+            
+            return {
+                value: t.id,
+                text: `${helpers.ensureBengaliText(t.name)} (${helpers.formatTimestamp(t.date) || 'N/A'})`,
+                sortDate: dateStr
+            };
+        })
+        .sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+    
+    if (elements.evaluationTaskSelect) {
+        uiManager.populateSelect(elements.evaluationTaskSelect, taskOptions, 'টাস্ক নির্বাচন করুন');
+        if (elements.evaluationTaskSelect.options.length > 1) {
+             elements.evaluationTaskSelect.selectedIndex = 0; // Reset selection
+        }
+    }
+
+    // Populate Groups
+    const groupOptions = filteredGroups.map(g => ({ value: g.id, text: g.name }));
+    if (elements.evaluationGroupSelect) {
+        uiManager.populateSelect(elements.evaluationGroupSelect, groupOptions, 'গ্রুপ নির্বাচন করুন');
+    }
 }
 
 /**

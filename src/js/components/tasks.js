@@ -44,6 +44,73 @@ const TASK_STATUS_META = {
     badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
   },
 };
+
+// Subject color palette for unique subject badges
+// Subject color palette for unique subject badges (Safe Colors & High Contrast)
+const SUBJECT_COLORS = [
+  'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-white dark:border-red-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-white dark:border-yellow-700',
+  'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-white dark:border-green-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-white dark:border-gray-600',
+];
+
+// Class color palette for unique class badges (Safe Colors & High Contrast)
+const CLASS_COLORS = [
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900 dark:text-white dark:border-violet-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900 dark:text-white dark:border-fuchsia-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900 dark:text-white dark:border-rose-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-white dark:border-amber-700',
+  'bg-lime-100 text-lime-800 border-lime-200 dark:bg-lime-900 dark:text-white dark:border-lime-700',
+  'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-white dark:border-emerald-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900 dark:text-white dark:border-cyan-700',
+  'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-white dark:border-sky-700',
+];
+
+// Get consistent color for a subject based on its name
+function _getSubjectColor(subjectName) {
+  if (!subjectName) return SUBJECT_COLORS[0];
+
+  // Predefined colors for common subjects to ensure distinctness
+  const lowerName = subjectName.trim().toLowerCase();
+  if (lowerName.includes('বাংলা') || lowerName.includes('bangla')) return SUBJECT_COLORS[0]; // Red/Rose
+  if (lowerName.includes('ইংরেজি') || lowerName.includes('english')) return SUBJECT_COLORS[5]; // Blue
+  if (lowerName.includes('গণিত') || lowerName.includes('math')) return SUBJECT_COLORS[1]; // Orange
+  if (lowerName.includes('আইসিটি') || lowerName.includes('ict') || lowerName.includes('তথ্য')) return SUBJECT_COLORS[4]; // Teal
+  if (lowerName.includes('বিজ্ঞান') || lowerName.includes('science')) return SUBJECT_COLORS[3]; // Green
+  if (lowerName.includes('ধর্ম') || lowerName.includes('religion') || lowerName.includes('ইসলাম')) return SUBJECT_COLORS[7]; // Purple
+  if (lowerName.includes('পদার্থ') || lowerName.includes('physics')) return SUBJECT_COLORS[8]; // Indigo
+  if (lowerName.includes('রসায়ন') || lowerName.includes('chemistry')) return SUBJECT_COLORS[2]; // Yellow/Amber
+  if (lowerName.includes('জীব') || lowerName.includes('biology')) return SUBJECT_COLORS[6]; // Pink/Fuchsia
+
+  let hash = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
+}
+
+// Get consistent color for a class based on its name
+function _getClassColor(className) {
+  if (!className) return CLASS_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < className.length; i++) {
+    hash = className.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
+}
+
 const TASK_STATUS_VALUES = TASK_STATUS_OPTIONS.map((opt) => opt.value);
 
 /**
@@ -100,9 +167,9 @@ export function render() {
   // "Filter for only upcoming tasks" was: const upcomingTasks = tasks.filter(task => _getTaskStatus(task) === 'upcoming');
   // I should probably keep that but apply it to the filtered list.
   
-  const upcomingTasks = filteredTasks.filter(task => _getTaskStatus(task) === 'upcoming');
-  
-  _renderTasksList(upcomingTasks);
+  // Show all tasks (previously only showed 'upcoming')
+  // Users can see all tasks and filter/change status as needed
+  _renderTasksList(filteredTasks);
   // Reset add form breakdown fields to default when page renders
   _setBreakdownInputs(DEFAULT_SCORE_BREAKDOWN, ''); // '' prefix for add form
 }
@@ -150,9 +217,15 @@ function _cacheDOMElements() {
 
 function _populateSelectors() {
     const classes = stateManager.get('classes') || [];
-    const sections = stateManager.get('sections') || [];
-    const subjects = stateManager.get('subjects') || [];
+    const sectionsRaw = stateManager.get('sections') || [];
+    const subjectsRaw = stateManager.get('subjects') || [];
     const user = stateManager.get('currentUserData');
+
+    // Deduplicate sections by name (Use Map to keep last)
+    const sections = Array.from(new Map(sectionsRaw.map(s => [s.name?.trim(), s])).values());
+    
+    // Deduplicate subjects by name (Use Map to keep last)
+    const subjects = Array.from(new Map(subjectsRaw.map(s => [s.name?.trim(), s])).values());
 
     let availableClasses = classes;
     let availableSections = sections;
@@ -357,7 +430,7 @@ function _renderTasksList(tasks) {
   if (!elements.tasksListContainer) return;
   uiManager.clearContainer(elements.tasksListContainer);
   if (!tasks || tasks.length === 0) {
-    uiManager.displayEmptyMessage(elements.tasksListContainer, '???? ????? ??? ??? ?????');
+    uiManager.displayEmptyMessage(elements.tasksListContainer, 'কোনো টাস্ক পাওয়া যায়নি');
     return;
   }
 
@@ -366,10 +439,15 @@ function _renderTasksList(tasks) {
     const dateStrB = _getComparableDateString(b.date);
     return dateStrB.localeCompare(dateStrA);
   });
+  
+  // Get lookup data
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  const subjects = stateManager.get('subjects') || [];
 
   const html = sortedTasks
     .map((task) => {
-      const formattedDate = helpers.formatTimestamp(task.date) || '????? ???';
+      const formattedDate = helpers.formatTimestamp(task.date) || 'তারিখ নেই';
       const totalMaxScore = task.maxScoreBreakdown
         ? (parseFloat(task.maxScoreBreakdown.task) || 0) +
           (parseFloat(task.maxScoreBreakdown.team) || 0) +
@@ -384,9 +462,9 @@ function _renderTasksList(tasks) {
 
       const breakdown = task.maxScoreBreakdown || {};
       const breakdownTitle =
-        `?????????: ?????-${helpers.convertToBanglaNumber(breakdown.task ?? 'N/A')}, ` +
-        `???-${helpers.convertToBanglaNumber(breakdown.team ?? 'N/A')}, ` +
-        `????????-${helpers.convertToBanglaNumber(breakdown.additional ?? 'N/A')}, ` +
+        `ব্রেকডাউন: টাস্ক-${helpers.convertToBanglaNumber(breakdown.task ?? 'N/A')}, ` +
+        `টিম-${helpers.convertToBanglaNumber(breakdown.team ?? 'N/A')}, ` +
+        `অতিরিক্ত-${helpers.convertToBanglaNumber(breakdown.additional ?? 'N/A')}, ` +
         `MCQ-${helpers.convertToBanglaNumber(breakdown.mcq ?? 'N/A')}`;
 
       const statusValue = _getTaskStatus(task);
@@ -394,9 +472,18 @@ function _renderTasksList(tasks) {
       const statusBadge = `<span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusMeta.badge}">
         <i class="fas fa-circle text-[6px]"></i>${statusMeta.label}
       </span>`;
+      
+      // Get Class, Section, Subject names
+      const className = task.classId ? (classes.find(c => c.id === task.classId)?.name || 'অজানা') : '-';
+      const sectionName = task.sectionId ? (sections.find(s => s.id === task.sectionId)?.name || 'অজানা') : '-';
+      const subjectName = task.subjectId ? (subjects.find(s => s.id === task.subjectId)?.name || 'অজানা') : '-';
+      const subjectColor = _getSubjectColor(subjectName);
+      const classColor = _getClassColor(className);
+
+
 
       return `
-        <div class="card p-4 space-y-4">
+        <div class="card p-4 space-y-3">
           <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div class="flex-grow" title="${breakdownTitle}">
               <div class="flex items-center gap-2 flex-wrap">
@@ -404,9 +491,19 @@ function _renderTasksList(tasks) {
                 ${statusBadge}
               </div>
               <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                তারিখ: ${formattedDate} | মোট সর্বোচ্চ স্কোর: ${maxScoreText}
+                <i class="far fa-calendar-alt mr-1"></i>তারিখ: ${formattedDate} | <i class="fas fa-star mr-1"></i>মোট: ${maxScoreText}
               </p>
-              ${task.subjectId ? `<p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">বিষয়: ${helpers.ensureBengaliText((stateManager.get('subjects') || []).find(s => s.id === task.subjectId)?.name || 'অজানা')}</p>` : ''}
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${classColor}">
+                  <i class="fas fa-graduation-cap"></i> ${className}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                  <i class="fas fa-layer-group"></i> ${sectionName}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${subjectColor}">
+                  <i class="fas fa-book"></i> ${subjectName}
+                </span>
+              </div>
               ${description}
             </div>
             <div class="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-end gap-2">
@@ -420,10 +517,10 @@ function _renderTasksList(tasks) {
                 ${_buildStatusOptions(statusValue)}
               </select>
               <div class="flex space-x-2 justify-end">
-                <button data-id="${task.id}" class="edit-task-btn btn btn-light btn-sm py-1 px-2" aria-label="????????">
+                <button data-id="${task.id}" class="edit-task-btn btn btn-light btn-sm py-1 px-2" aria-label="সম্পাদনা">
                   <i class="fas fa-edit pointer-events-none"></i>
                 </button>
-                <button data-id="${task.id}" class="delete-task-btn btn btn-danger btn-sm py-1 px-2" aria-label="?????">
+                <button data-id="${task.id}" class="delete-task-btn btn btn-danger btn-sm py-1 px-2" aria-label="ডিলিট">
                   <i class="fas fa-trash pointer-events-none"></i>
                 </button>
               </div>
@@ -726,9 +823,31 @@ function _handleEditTask(taskId) {
 
     // Populate Edit Modal Selects
     const classes = stateManager.get('classes') || [];
-    const sections = stateManager.get('sections') || [];
-    const subjects = stateManager.get('subjects') || [];
+    const sectionsRaw = stateManager.get('sections') || [];
+    const subjectsRaw = stateManager.get('subjects') || [];
     const user = stateManager.get('currentUserData');
+
+    // Deduplicate sections by name (Use Map to keep last, matching other components)
+    // AND ensure current task section is preserved
+    const uniqueSectionsMap = new Map(sectionsRaw.map(s => [s.name?.trim(), s]));
+    if (task.sectionId) {
+        const currentSection = sectionsRaw.find(s => s.id === task.sectionId);
+        if (currentSection && currentSection.name) {
+            uniqueSectionsMap.set(currentSection.name.trim(), currentSection);
+        }
+    }
+    const sections = Array.from(uniqueSectionsMap.values());
+    
+    // Deduplicate subjects by name (Use Map to keep last, matching other components)
+    // AND ensure current task subject is preserved
+    const uniqueSubjectsMap = new Map(subjectsRaw.map(s => [s.name?.trim(), s]));
+    if (task.subjectId) {
+        const currentSubject = subjectsRaw.find(s => s.id === task.subjectId);
+        if (currentSubject && currentSubject.name) {
+            uniqueSubjectsMap.set(currentSubject.name.trim(), currentSubject);
+        }
+    }
+    const subjects = Array.from(uniqueSubjectsMap.values());
 
     let availableClasses = classes;
     let availableSections = sections;

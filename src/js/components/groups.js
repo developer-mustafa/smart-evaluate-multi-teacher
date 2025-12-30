@@ -117,9 +117,23 @@ function _renderGroupsList(groups) {
                 <h4 class="text-lg font-semibold text-gray-800 dark:text-white">${helpers.ensureBengaliText(
                   group.name
                 )}</h4>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    শিক্ষার্থী সংখ্যা: ${helpers.convertToBanglaNumber(studentCount)}
-                </p>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    ${
+                      group.classId
+                        ? `<span class="mr-2"><i class="fas fa-chalkboard mr-1"></i>${
+                            (stateManager.get('classes') || []).find((c) => c.id === group.classId)?.name || 'অজানা ক্লাস'
+                          }</span>`
+                        : ''
+                    }
+                    ${
+                      group.sectionId
+                        ? `<span class="mr-2"><i class="fas fa-layer-group mr-1"></i>${
+                            (stateManager.get('sections') || []).find((s) => s.id === group.sectionId)?.name || 'অজানা শাখা'
+                          }</span>`
+                        : ''
+                    }
+                    <span><i class="fas fa-users mr-1"></i>${helpers.convertToBanglaNumber(studentCount)} জন</span>
+                </div>
             </div>
             <div class="flex space-x-2 mt-3 sm:mt-0 self-end sm:self-auto">
                 <button data-id="${group.id}" 
@@ -162,7 +176,18 @@ async function _handleAddGroup() {
 function _showStudentSelectionModal() {
   const students = stateManager.get('students') || [];
   const classes = stateManager.get('classes') || [];
-  const sections = stateManager.get('sections') || [];
+  const sectionsRaw = stateManager.get('sections') || [];
+  
+  // Deduplicate sections by name
+  const sections = [];
+  const seenSectionNames = new Set();
+  sectionsRaw.forEach(s => {
+      const name = s.name ? s.name.trim() : '';
+      if (name && !seenSectionNames.has(name)) {
+          seenSectionNames.add(name);
+          sections.push(s);
+      }
+  });
   
   // Selected students tracking
   let selectedStudents = new Set();
@@ -172,7 +197,7 @@ function _showStudentSelectionModal() {
     <div id="studentSelectionModal" class="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
       <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         <!-- Header -->
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
           <h3 class="text-xl font-bold text-gray-900 dark:text-white">নতুন গ্রুপ তৈরি করুন</h3>
           <button id="btnCloseStudentModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <i class="fas fa-times text-xl"></i>
@@ -181,60 +206,34 @@ function _showStudentSelectionModal() {
         
         <!-- Content -->
         <div class="flex-1 overflow-y-auto p-6 space-y-4">
-          <!-- Search and Filters -->
-          <div class="space-y-3">
-            <input 
-              id="studentSearch" 
-              type="text" 
-              placeholder="শিক্ষার্থী খুঁজুন (নাম বা রোল)..." 
-              class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-            
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <select id="filterClass" class="form-input px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                <option value="">সকল ক্লাস</option>
-                ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-              </select>
-              
-              <select id="filterSection" class="form-input px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                <option value="">সকল শাখা</option>
-                ${sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
-              </select>
-              
-              <select id="filterAcademicGroup" class="form-input px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                <option value="">সকল গ্রুপ</option>
-                <option value="বিজ্ঞান">বিজ্ঞান</option>
-                <option value="ব্যবসায়">ব্যবসায়</option>
-                <option value="মানবিক">মানবিক</option>
-              </select>
-            </div>
-          </div>
-          
-          <!-- Select All and Count -->
-          <div class="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="selectAllStudents" class="form-checkbox rounded">
-              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">সকল শিক্ষার্থী নির্বাচন করুন</span>
-            </label>
-            <span id="selectedCount" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">নির্বাচিত: ০</span>
-          </div>
-          
-          <!-- Students List -->
-          <div id="studentsList" class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-            <!-- Will be populated by JavaScript -->
-          </div>
-          
-          <!-- Group Details Form -->
-          <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <!-- Group Details Form (Top) -->
+          <div class="space-y-4 pb-4 border-b border-gray-200 dark:border-gray-700">
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">গ্রুপের নাম *</label>
               <input 
                 id="groupNameInput" 
                 type="text" 
                 placeholder="যেমন: বিজ্ঞান গ্রুপ - A" 
-                class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 maxlength="50"
               >
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ক্লাস *</label>
+                <select id="groupClassInput" class="form-select w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                  <option value="">ক্লাস নির্বাচন করুন</option>
+                  ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">শাখা (ঐচ্ছিক)</label>
+                <select id="groupSectionInput" class="form-select w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                  <option value="">শাখা নির্বাচন করুন</option>
+                  ${sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                </select>
+              </div>
             </div>
             
             <div>
@@ -243,19 +242,64 @@ function _showStudentSelectionModal() {
                 id="groupDescInput" 
                 rows="2" 
                 placeholder="গ্রুপ সম্পর্কে সংক্ষিপ্ত বিবরণ..."
-                class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               ></textarea>
+            </div>
+          </div>
+          
+          <!-- Student Selection Section -->
+          <div class="space-y-3">
+            <h4 class="text-lg font-semibold text-gray-900 dark:text-white">শিক্ষার্থী নির্বাচন করুন</h4>
+            
+            <!-- Search -->
+            <input 
+              id="studentSearch" 
+              type="text" 
+              placeholder="শিক্ষার্থী খুঁজুন (নাম বা রোল)..." 
+              class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+            
+            <!-- Filters -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <select id="filterClass" class="form-select px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">সকল ক্লাস</option>
+                ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+              </select>
+              
+              <select id="filterSection" class="form-select px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">সকল শাখা</option>
+                ${sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+              </select>
+              
+              <select id="filterAcademicGroup" class="form-select px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">সকল একাডেমিক গ্রুপ</option>
+                ${[...new Set(students.map(s => s.academicGroup || s.group).filter(g => g))].map(g => `<option value="${g}">${g}</option>`).join('')}
+              </select>
+            </div>
+            
+            <!-- Select All and Count -->
+            <div class="flex items-center justify-between py-2 px-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="selectAllStudents" class="form-checkbox rounded text-indigo-600">
+                <span class="text-sm font-medium text-indigo-700 dark:text-indigo-300">সকল শিক্ষার্থী নির্বাচন করুন</span>
+              </label>
+              <span id="selectedCount" class="text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full">নির্বাচিত: ০</span>
+            </div>
+            
+            <!-- Students List -->
+            <div id="modalStudentsList" class="space-y-2 max-h-72 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/50">
+              <p class="text-center text-gray-500 dark:text-gray-400 py-8">লোড হচ্ছে...</p>
             </div>
           </div>
         </div>
         
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 flex-shrink-0">
           <button id="btnCancelGroupCreate" class="flex-1 px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium">
             বাতিল
           </button>
           <button id="btnCreateGroup" class="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-sm">
-            গ্রুপ তৈরি করুন
+            <i class="fas fa-plus mr-2"></i>গ্রুপ তৈরি করুন
           </button>
         </div>
       </div>
@@ -269,7 +313,7 @@ function _showStudentSelectionModal() {
   
   // Get modal elements
   const modal = document.getElementById('studentSelectionModal');
-  const studentsList = document.getElementById('studentsList');
+  const studentsList = document.getElementById('modalStudentsList');
   const searchInput = document.getElementById('studentSearch');
   const filterClass = document.getElementById('filterClass');
   const filterSection = document.getElementById('filterSection');
@@ -282,55 +326,103 @@ function _showStudentSelectionModal() {
   
   // Render students function
   function renderStudents() {
+    console.log('📋 renderStudents called');
+    console.log('📊 filteredStudents count:', filteredStudents.length);
+    console.log('📊 studentsList element:', studentsList);
+    
+    if (!studentsList) {
+      console.error('❌ studentsList element not found!');
+      return;
+    }
+    
     if (filteredStudents.length === 0) {
       studentsList.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400 py-8">কোনো শিক্ষার্থী পাওয়া যায়নি</p>';
       return;
     }
     
-    studentsList.innerHTML = filteredStudents.map(student => {
+    const htmlContent = filteredStudents.map(student => {
       const className = classes.find(c => c.id === student.classId)?.name || '-';
-      const sectionName = sections.find(s => s.id === student.sectionId)?.name || '-';
+      // Use sectionsRaw for lookup to find exact match, even if it was deduplicated from dropdown
+      const sectionName = sectionsRaw.find(s => s.id === student.sectionId)?.name || '-';
       const isSelected = selectedStudents.has(student.id);
       
       return `
-        <label class="flex items-center gap-3 p-3 rounded-lg border ${isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700'} hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
+        <label class="flex items-center gap-3 p-3 rounded-lg border ${isSelected ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'} hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors">
           <input 
             type="checkbox" 
-            class="student-checkbox form-checkbox rounded" 
+            class="student-checkbox form-checkbox rounded text-indigo-600" 
             data-student-id="${student.id}"
             ${isSelected ? 'checked' : ''}
           >
-          <div class="flex-1">
-            <div class="font-medium text-gray-900 dark:text-white">${student.name}</div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">
-              রোল: ${student.roll} • ${className} • ${sectionName} • ${student.academicGroup || '-'}
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-gray-900 dark:text-white truncate">${student.name || 'নাম নেই'}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 truncate">
+              <span class="inline-flex items-center"><i class="fas fa-id-badge mr-1 text-xs"></i>রোল: ${student.roll || '-'}</span>
+              <span class="mx-2">•</span>
+              <span>${className}</span>
+              <span class="mx-2">•</span>
+              <span>${sectionName}</span>
+              ${student.academicGroup ? `<span class="mx-2">•</span><span>${student.academicGroup}</span>` : ''}
             </div>
           </div>
         </label>
       `;
     }).join('');
     
+    console.log('✅ Rendering', filteredStudents.length, 'students');
+    studentsList.innerHTML = htmlContent;
+    
     updateSelectedCount();
   }
   
   // Filter function
   function applyFilters() {
-    const searchTerm = searchInput.value.toLowerCase().trim();
-    const classFilter = filterClass.value;
-    const sectionFilter = filterSection.value;
-    const groupFilter = filterAcademicGroup.value;
+    console.log('🔍 applyFilters called');
+    const searchTerm = searchInput?.value?.toLowerCase().trim() || '';
+    const classFilter = filterClass?.value || '';
+    const sectionFilter = filterSection?.value || '';
+    const groupFilter = filterAcademicGroup?.value || '';
+    
+    console.log('🔍 Filters:', { searchTerm, classFilter, sectionFilter, groupFilter });
+    console.log('🔍 Total students:', students.length);
+    
+    // Debug: Log unique academic groups in database
+    if (groupFilter) {
+        const uniqueAcademicGroups = [...new Set(students.map(s => s.academicGroup || s.group || '(empty)'))];
+        console.log('🎓 Unique Academic Groups in DB:', uniqueAcademicGroups);
+        console.log('🎓 Filter value:', groupFilter);
+    }
     
     filteredStudents = students.filter(student => {
       const matchesSearch = !searchTerm || 
-        student.name.toLowerCase().includes(searchTerm) ||
-        student.roll.toString().includes(searchTerm);
+        (student.name && student.name.toLowerCase().includes(searchTerm)) ||
+        (student.roll && student.roll.toString().includes(searchTerm));
       const matchesClass = !classFilter || student.classId === classFilter;
-      const matchesSection = !sectionFilter || student.sectionId === sectionFilter;
-      const matchesGroup = !groupFilter || student.academicGroup === groupFilter;
+      
+      // For section filter, match by section name since sections are deduplicated
+      let matchesSection = true;
+      if (sectionFilter) {
+          const selectedSection = sections.find(s => s.id === sectionFilter);
+          if (selectedSection) {
+              const studentSection = sectionsRaw.find(s => s.id === student.sectionId);
+              matchesSection = studentSection && studentSection.name === selectedSection.name;
+          } else {
+              matchesSection = student.sectionId === sectionFilter;
+          }
+      }
+      
+      // Academic group matching - check both academicGroup and group fields
+      let matchesGroup = true;
+      if (groupFilter) {
+          const studentGroup = (student.academicGroup || student.group || '').trim();
+          const filterGroup = groupFilter.trim();
+          matchesGroup = studentGroup === filterGroup || studentGroup.toLowerCase() === filterGroup.toLowerCase();
+      }
       
       return matchesSearch && matchesClass && matchesSection && matchesGroup;
     });
     
+    console.log('🔍 Filtered students count:', filteredStudents.length);
     renderStudents();
   }
   
@@ -392,10 +484,16 @@ function _showStudentSelectionModal() {
   btnCreate.addEventListener('click', async () => {
     const groupName = document.getElementById('groupNameInput').value.trim();
     const groupDesc = document.getElementById('groupDescInput').value.trim();
+    const groupClassId = document.getElementById('groupClassInput').value;
+    const groupSectionId = document.getElementById('groupSectionInput').value;
     
     if (!groupName) {
       uiManager.showToast('গ্রুপের নাম লিখুন।', 'warning');
       return;
+    }
+    if (!groupClassId) {
+        uiManager.showToast('গ্রুপের ক্লাস নির্বাচন করুন।', 'warning');
+        return;
     }
     
     if (selectedStudents.size === 0) {
@@ -416,6 +514,8 @@ function _showStudentSelectionModal() {
       const groupData = {
         name: groupName,
         description: groupDesc,
+        classId: groupClassId,
+        sectionId: groupSectionId || null, // Optional
         studentIds: Array.from(selectedStudents),
         createdAt: new Date().toISOString()
       };
@@ -470,21 +570,42 @@ function _handleEditGroup(groupId) {
                    value="${group.name || ''}"
                    maxlength="50" />
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+            <div>
+                <label class="label" for="editGroupClassInput">ক্লাস</label>
+                <select id="editGroupClassInput" class="form-select w-full">
+                    <option value="">ক্লাস নির্বাচন করুন</option>
+                </select>
+            </div>
+            <div>
+                <label class="label" for="editGroupSectionInput">শাখা</label>
+                <select id="editGroupSectionInput" class="form-select w-full">
+                    <option value="">শাখা নির্বাচন করুন</option>
+                </select>
+            </div>
+        </div>
     `;
 
   uiManager.showEditModal('গ্রুপ সম্পাদনা', contentHTML, async () => {
     // এটি হলো 'saveCallback' ফাংশন
     const newNameInput = document.getElementById('editGroupNameInput');
+    const newClassInput = document.getElementById('editGroupClassInput');
+    const newSectionInput = document.getElementById('editGroupSectionInput');
+    
     const newName = newNameInput?.value.trim();
+    const newClassId = newClassInput?.value;
+    const newSectionId = newSectionInput?.value;
 
     if (!newName) {
       uiManager.showToast('গ্রুপের নাম খালি রাখা যাবে না।', 'warning');
       return; // মোডাল বন্ধ করি না
     }
-    if (newName === group.name) {
-      uiManager.hideModal(uiManager.elements.editModal);
-      return;
+    if (!newClassId) {
+        uiManager.showToast('গ্রুপের ক্লাস নির্বাচন করুন।', 'warning');
+        return;
     }
+    // Removed the early return when name hasn't changed.
+    // User might only be changing class/section, so we should still save.
 
     uiManager.showLoading('আপডেট করা হচ্ছে...');
     try {
@@ -496,7 +617,11 @@ function _handleEditGroup(groupId) {
         return; // মোডাল বন্ধ করি না
       }
 
-      await dataService.updateGroup(groupId, { name: newName });
+      await dataService.updateGroup(groupId, { 
+          name: newName,
+          classId: newClassId,
+          sectionId: newSectionId || null
+      });
       await app.refreshAllData();
 
       uiManager.hideModal(uiManager.elements.editModal);
@@ -507,6 +632,33 @@ function _handleEditGroup(groupId) {
     } finally {
       uiManager.hideLoading();
     }
+  }, () => {
+      // On Open Callback (to populate selects)
+      // Re-fetch group to ensure we have the latest data (in case it was just updated)
+      const freshGroup = stateManager.get('groups').find((g) => g.id === groupId) || group;
+      
+      const classes = stateManager.get('classes') || [];
+      const sections = stateManager.get('sections') || [];
+      
+      const classSelect = document.getElementById('editGroupClassInput');
+      const sectionSelect = document.getElementById('editGroupSectionInput');
+      
+      if (classSelect) {
+          uiManager.populateSelect(classSelect, classes.map(c => ({ value: c.id, text: c.name })), 'ক্লাস নির্বাচন করুন', freshGroup.classId);
+      }
+      if (sectionSelect) {
+          // Deduplicate sections by name
+          const uniqueSections = [];
+          const seenSectionNames = new Set();
+          sections.forEach(s => {
+              const name = s.name ? s.name.trim() : '';
+              if (name && !seenSectionNames.has(name)) {
+                  seenSectionNames.add(name);
+                  uniqueSections.push(s);
+              }
+          });
+          uiManager.populateSelect(sectionSelect, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন', freshGroup.sectionId);
+      }
   });
 }
 
