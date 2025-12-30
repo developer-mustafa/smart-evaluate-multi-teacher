@@ -978,6 +978,44 @@ function _handleEditTask(taskId) {
     if (task.classId) document.getElementById('editTaskClass').value = task.classId;
     if (task.sectionId) document.getElementById('editTaskSection').value = task.sectionId;
     if (task.subjectId) document.getElementById('editTaskSubject').value = task.subjectId;
+
+    // Add listener for cascading dropdowns in Edit Modal
+    document.getElementById('editTaskClass').addEventListener('change', (e) => {
+        const selectedClassId = e.target.value;
+        const sectionsRaw = stateManager.get('sections') || [];
+        const subjectsRaw = stateManager.get('subjects') || [];
+        
+        // Filter Sections by Class
+        let filteredSections = sectionsRaw;
+        if (selectedClassId) {
+             const allClasses = stateManager.get('classes') || [];
+             const selectedClass = allClasses.find(c => c.id === selectedClassId);
+             const selectedClassName = selectedClass?.name?.trim();
+             if (selectedClassName) {
+                 const sameNameClassIds = allClasses.filter(c => c.name?.trim() === selectedClassName).map(c => c.id);
+                 filteredSections = filteredSections.filter(s => sameNameClassIds.includes(s.classId));
+             } else {
+                 filteredSections = filteredSections.filter(s => s.classId === selectedClassId);
+             }
+        }
+        
+        // Deduplicate
+        const uniqueSections = Array.from(new Map(filteredSections.map(s => [s.name?.trim(), s])).values());
+        
+        // Update Dropdowns
+        uiManager.populateSelect(document.getElementById('editTaskSection'), uniqueSections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন');
+        
+        // Reset Subject (optional, but good practice if class changes)
+        // Subjects might be class-specific in the future, but for now they are loosely coupled. 
+        // However, if we want to be strict, we could filter subjects too if they have classId.
+        // Let's keep subjects as is for now, or filter if they have classId.
+        let filteredSubjects = subjectsRaw;
+        if (selectedClassId) {
+             filteredSubjects = filteredSubjects.filter(s => !s.classId || s.classId === selectedClassId);
+        }
+        const uniqueSubjects = Array.from(new Map(filteredSubjects.map(s => [s.name?.trim(), s])).values());
+        uiManager.populateSelect(document.getElementById('editTaskSubject'), uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'বিষয় নির্বাচন করুন');
+    });
   }
 }
 

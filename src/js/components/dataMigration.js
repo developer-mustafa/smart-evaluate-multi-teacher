@@ -418,6 +418,8 @@ function _calculateConfidence(issue) {
     if (issue.suggested.sectionId) confidence += 0.5;
   } else if (issue.type === 'task') {
     if (issue.suggested.subjectId) confidence = 1.0;
+  } else if (issue.type === 'cross-class-mismatch') {
+      if (issue.suggested.subjectId) confidence = 1.0;
   }
   
   return confidence;
@@ -600,7 +602,30 @@ function _renderIssueCard(issue) {
         </select>
       </div>
     `;
+  } else if (issue.type === 'cross-class-mismatch') {
+      // Subject dropdown for mismatch fix (filtered by task's class)
+      const taskClassId = issue.current.classId;
+      const relevantSubjects = subjects.filter(s => s.classId === taskClassId);
+      
+      const subjectOptions = relevantSubjects.map(s => 
+        `<option value="${s.id}" ${issue.suggested.subjectId === s.id ? 'selected' : ''}>${s.name}</option>`
+      ).join('');
+
+      selectionHTML = `
+        <div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-100 dark:border-red-800">
+            <p class="text-xs text-red-600 dark:text-red-400 mb-1"><i class="fas fa-exclamation-triangle mr-1"></i> ভুল ক্লাসের বিষয়ের সাথে লিংক করা!</p>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-slate-500 dark:text-slate-400">সঠিক বিষয়:</label>
+                <select data-issue-id="${issue.id}" data-field="subjectId" 
+                class="text-xs px-2 py-1 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                <option value="">নির্বাচন করুন</option>
+                ${subjectOptions}
+                </select>
+            </div>
+        </div>
+      `;
   }
+
   
   // Determine badge color and label based on type
   const typeConfig = {
@@ -962,7 +987,7 @@ async function _updateDocument(issue) {
   // Use correct dataService methods based on issue type
   if (issue.type === 'evaluation') {
     await dataService.updateEvaluation(issue.documentId, updates);
-  } else if (issue.type === 'task') {
+  } else if (issue.type === 'task' || issue.type === 'cross-class-mismatch') {
     await dataService.updateTask(issue.documentId, updates);
   } else if (issue.type === 'group') {
     await dataService.updateGroup(issue.documentId, updates);

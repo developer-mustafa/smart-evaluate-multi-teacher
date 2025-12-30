@@ -119,15 +119,47 @@ export function render() {
           });
         }
         
-        // Filter tasks by subject (name-based matching)
-        if (activeContext.subjectId && selectedSubjectName) {
-          tasks = tasks.filter(t => {
-            if (!t.subjectId) return false;
-            const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
-            const match = taskSubject?.name?.trim() === selectedSubjectName;
-            return match;
-          });
-        }
+        // Filter tasks by Class, Section, and Subject
+        console.log('🔍 Dashboard Filter Context:', activeContext);
+        console.log('🔍 Total Tasks Before Filter:', tasks.length);
+
+        tasks = tasks.filter(t => {
+          let match = true;
+
+          // Filter by Class
+          if (activeContext.classId) {
+             if (t.classId && t.classId !== activeContext.classId) {
+                 match = false;
+                 console.log(`❌ Task Rejected (Class Mismatch): ${t.title || t.name} (${t.classId} != ${activeContext.classId})`);
+             }
+          }
+
+          // Filter by Section
+          if (activeContext.sectionId) {
+             if (t.sectionId && t.sectionId !== activeContext.sectionId) {
+                 match = false;
+                 console.log(`❌ Task Rejected (Section Mismatch): ${t.title || t.name} (${t.sectionId} != ${activeContext.sectionId})`);
+             }
+          }
+
+          // Filter by Subject
+          if (activeContext.subjectId && selectedSubjectName) {
+            if (!t.subjectId) {
+                match = false;
+                 console.log(`❌ Task Rejected (No Subject ID): ${t.title || t.name}`);
+            }
+            else {
+                const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
+                if (taskSubject?.name?.trim() !== selectedSubjectName) {
+                    match = false;
+                    console.log(`❌ Task Rejected (Subject Name Mismatch): ${t.title || t.name}`);
+                }
+            }
+          }
+          
+          return match;
+        });
+        console.log('🔍 Total Tasks After Filter:', tasks.length);
         
         // Filter groups to only those containing filtered students
         if (activeContext.classId || activeContext.sectionId) {
@@ -1370,6 +1402,21 @@ function _updateDashboardForTask(taskId) {
            displaySubject = subject?.name || '';
        }
 
+       // Update Title and Date for the Selected Assignment
+       if (elements.latestTaskTitle) {
+           elements.latestTaskTitle.textContent = targetTask.title || targetTask.name || 'অজ্ঞাত এসাইনমেন্ট';
+           elements.latestTaskTitle.title = targetTask.title || targetTask.name || '';
+       }
+       if (elements.latestAssignmentUpdated) {
+           const ts = _getTaskScheduleTimestamp(targetTask);
+           elements.latestAssignmentUpdated.textContent = ts ? _formatDateOnly(ts) : '-';
+       }
+       
+       // Update Label for Specific Task
+       if (elements.latestAssignmentAverageLabelText) {
+           elements.latestAssignmentAverageLabelText.textContent = 'এসাইনমেন্ট গড়';
+       }
+
        // Re-render dynamic sections with filtered stats
        _renderTopGroups(stats.groupPerformanceData);
        _renderAcademicGroups(stats.academicGroupStats);
@@ -1550,8 +1597,8 @@ function _normalizeGender(value) {
 }
 
 function _calculateGroupPerformance(groups, students, evaluations, tasks) {
-  const taskMap = new Map(tasks.map((task) => [task.id, task]));
-  const studentToGroup = new Map(students.map((s) => [s.id, s.groupId]));
+  const taskMap = new Map(tasks.map((task) => [String(task.id), task]));
+  const studentToGroup = new Map(students.map((s) => [String(s.id), s.groupId]));
 
   // Initialize group stats
   const groupStats = {};
@@ -1581,7 +1628,7 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
     if (!evaluation.scores) return;
 
     const taskId = evaluation.taskId;
-    const task = taskMap.get(taskId);
+    const task = taskMap.get(String(taskId));
     const maxScorePerStudent = parseFloat(task?.maxScore) || parseFloat(evaluation.maxPossibleScore) || 100;
     
     const evalTs = _normalizeTimestamp(evaluation.taskDate) ||
@@ -1592,7 +1639,14 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
     const evalGroupAgg = {}; 
 
     Object.entries(evaluation.scores).forEach(([studentId, scoreData]) => {
-      const groupId = studentToGroup.get(studentId);
+      // Primary: Use student's CURRENT group (Merge on Transfer)
+      let groupId = studentToGroup.get(String(studentId));
+      
+      // Fallback: If student has no current group (deleted?), use evaluation's historical group
+      if (!groupId || !groupStats[groupId]) {
+          groupId = evaluation.groupId;
+      }
+
       if (!groupId || !groupStats[groupId]) return;
 
       if (!evalGroupAgg[groupId]) {
@@ -1691,7 +1745,18 @@ function _calculateLeaderboardRankingMeta(groups = [], students = [], evaluation
     const countedGroups = new Set();
     Object.entries(scores).forEach(([rawStudentId, scoreData]) => {
       const sid = rawStudentId != null ? String(rawStudentId) : '';
-      const gid = studentToGroup.get(sid) || '__none';
+      
+      // Primary: Use student's CURRENT group (Merge on Transfer)
+      let gid = studentToGroup.get(sid);
+
+      // Fallback: Use evaluation's historical group if student has no current group
+      if (!gid) {
+          gid = evaluation.groupId ? String(evaluation.groupId) : null;
+      }
+      
+      // Final fallback to __none if still no group found
+      if (!gid) gid = '__none';
+      
       const normalizedGroupId = _normalizeGroupId(gid);
       if (!groupAgg[normalizedGroupId]) {
         groupAgg[normalizedGroupId] = {
