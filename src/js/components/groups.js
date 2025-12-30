@@ -737,35 +737,61 @@ export function populateGroupSelects(selectElementIds, defaultOptionText = 'স�
       const students = stateManager.get('students') || [];
       const teacher = stateManager.get('currentTeacher');
       const assignedClasses = teacher?.assignedClasses || [];
-      // Note: We're NOT filtering by section - teachers get ALL groups from their assigned classes
+      const assignedSections = teacher?.assignedSections || [];
       
-      console.log('👨‍🏫 Teacher filtering:');
-      console.log('Assigned classes:', assignedClasses);
-      console.log('Total students:', students.length);
-
-      // Get all group IDs that have at least one student from teacher's assigned classes
-      // Note: Students have groupId field, not groups having studentIds array
-      const relevantGroupIds = new Set(
+      // 1. Get relevant group IDs from Students (existing logic)
+      const studentGroupIds = new Set(
           students
               .filter(s => assignedClasses.includes(s.classId) && s.groupId)
               .map(s => s.groupId)
       );
-      
-      console.log('Relevant group IDs:', relevantGroupIds.size);
-      console.log('Sample group IDs:', Array.from(relevantGroupIds).slice(0, 5));
 
-      // Filter groups by checking if their ID is in the relevant group IDs set
+      // 2. Get relevant group IDs from Group Metadata (NEW LOGIC)
+      const allClasses = stateManager.get('classes') || [];
+      const allSections = stateManager.get('sections') || [];
+
+      const assignedClassNames = new Set(
+          allClasses.filter(c => assignedClasses.includes(c.id)).map(c => c.name?.trim())
+      );
+      const assignedSectionNames = new Set(
+          allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+      );
+
       filteredGroups = groups.filter(g => {
-          const isRelevant = relevantGroupIds.has(g.id);
-          if (isRelevant) {
-              console.log('✅ Group included:', g.name, '(ID:', g.id, ')');
-          } else {
-              console.log('❌ Group excluded (no students from assigned class):', g.name);
+          // Check 1: Does it have students from my class?
+          if (studentGroupIds.has(g.id)) {
+              return true;
           }
-          return isRelevant;
+
+          // Check 2: Is the group itself assigned to my class/section?
+          // (Loose matching for Class and Section)
+          if (g.classId) {
+              const groupClass = allClasses.find(c => c.id === g.classId);
+              const groupClassName = groupClass?.name?.trim();
+              
+              const isClassMatch = assignedClasses.includes(g.classId) || 
+                                   (groupClassName && assignedClassNames.has(groupClassName));
+              
+              if (isClassMatch) {
+                  // If group has sectionId, check that too (optional, but safer)
+                  if (g.sectionId) {
+                      const groupSection = allSections.find(s => s.id === g.sectionId);
+                      const groupSectionName = groupSection?.name?.trim();
+                      const isSectionMatch = assignedSections.includes(g.sectionId) ||
+                                             (groupSectionName && assignedSectionNames.has(groupSectionName));
+                      
+                      if (isSectionMatch) {
+                          return true;
+                      }
+                  } else {
+                      // If no sectionId on group, Class match is enough
+                      return true;
+                  }
+              }
+          }
+
+          return false;
       });
-      
-      console.log('Filtered groups for teacher:', filteredGroups.length);
   }
 
   const options = filteredGroups

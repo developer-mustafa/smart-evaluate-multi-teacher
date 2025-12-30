@@ -75,7 +75,7 @@
   // ---------- state ----------
   function getState() {
     const app = window.smartEvaluator;
-    if (!app) return { groups: [], students: [], tasks: [], evaluations: [] };
+    if (!app) return { groups: [], students: [], tasks: [], evaluations: [], classes: [], sections: [], subjects: [] };
     const s = app.managers?.stateManager?.getState?.() || {};
     return {
       groups: Array.isArray(s.groups) ? s.groups : [],
@@ -84,6 +84,7 @@
       evaluations: Array.isArray(s.evaluations) ? s.evaluations : [],
       classes: Array.isArray(s.classes) ? s.classes : [],
       sections: Array.isArray(s.sections) ? s.sections : [],
+      subjects: Array.isArray(s.subjects) ? s.subjects : [],
     };
   }
 
@@ -110,12 +111,25 @@
     
     let evals = state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId));
     
-    // Filter evaluations for teachers - only show tasks for assigned subjects
+    // Filter evaluations for teachers - only show tasks for assigned subjects (Loose Matching)
     if (isTeacher && assignedSubjects.length > 0) {
+      const allSubjects = app?.managers?.stateManager?.get?.('subjects') || [];
+      const assignedSubjectNames = new Set(
+          allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+      );
+
       evals = evals.filter((ev) => {
         const task = taskMap.get(ev?.taskId);
-        // Only include evaluations where the task's subject is assigned to this teacher
-        return task && task.subjectId && assignedSubjects.includes(task.subjectId);
+        if (!task || !task.subjectId) return false;
+        
+        // Match ID
+        if (assignedSubjects.includes(task.subjectId)) return true;
+        
+        // Match Name
+        const sub = allSubjects.find(s => s.id === task.subjectId);
+        if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
+        
+        return false;
       });
       console.log('👨‍🏫 Teacher modal: Filtered evaluations from', state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId)).length, 'to', evals.length);
     }
@@ -171,10 +185,15 @@
       const app = window.smartEvaluator;
       if (app?.managers?.cacheManager) {
         try {
-          await app.managers.cacheManager.invalidate('evaluations_data');
-          await app.managers.cacheManager.forceReload('evaluations_data');
+          // Invalidate cache to force fresh data
+          app.managers.cacheManager.clear('evaluations_data');
+          // We don't need to force reload here manually if the next fetch handles it, 
+          // but since we are inside a modal render that relies on state, 
+          // we might want to trigger a data refresh if the app has such a method.
+          // However, the original intent was just to clear cache.
+          // app.managers.cacheManager.setForceRefresh(); // Alternative approach
         } catch (err) {
-          console.warn('Failed to reload evaluations:', err);
+          console.warn('Failed to clear evaluations cache:', err);
         }
       }
       
@@ -226,9 +245,24 @@
 
           const assigns = perEval.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
+          // Helper to format task name with context
+          const formatTaskName = (task) => {
+             if (!task) return 'Unknown Task';
+             const cName = state.classes.find(c => c.id === task.classId)?.name || '';
+             const sName = state.sections.find(s => s.id === task.sectionId)?.name || '';
+             const subName = state.subjects.find(s => s.id === task.subjectId)?.name || '';
+             
+             let prefix = '';
+             if (cName) prefix += `${cName} `;
+             if (sName) prefix += `(${sName}) `;
+             if (subName) prefix += `- ${subName}`;
+             
+             return prefix ? `${prefix.trim()} : ${task.name}` : task.name;
+          };
+
           sel.innerHTML = assigns.map((e, idx) => {
             const d = e.ts ? new Date(e.ts).toISOString().slice(0, 10) : '-';
-            const nm = e.task?.name || `Assignment-${idx + 1}`;
+            const nm = formatTaskName(e.task);
             return `<option value="${idx}">${escHtml(nm)} (${d})</option>`;
           }).join('');
 
@@ -244,7 +278,35 @@
             try {
               const dstr = e.ts ? new Date(e.ts).toISOString().slice(0, 10) : '-';
               const nm = e.task?.name || `Assignment-${idx + 1}`;
-              if (meta) meta.textContent = 'Task: ' + nm + ' | Date: ' + dstr;
+              
+              // Rich HTML Design for Task Header
+              if (meta) {
+                 const task = e.task;
+                 const cName = state.classes.find(c => c.id === task?.classId)?.name || '';
+                 const sName = state.sections.find(s => s.id === task?.sectionId)?.name || '';
+                 const subName = state.subjects.find(s => s.id === task?.subjectId)?.name || '';
+
+                 meta.innerHTML = `
+                    <div class="flex flex-col gap-2 mb-2">
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                            ${cName ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shadow-sm"><i class="fas fa-layer-group mr-1.5"></i>${escHtml(cName)}</span>` : ''}
+                            ${sName ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-700 shadow-sm"><i class="fas fa-puzzle-piece mr-1.5"></i>${escHtml(sName)}</span>` : ''}
+                            ${subName ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 shadow-sm"><i class="fas fa-book mr-1.5"></i>${escHtml(subName)}</span>` : ''}
+                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 shadow-sm ml-auto"><i class="far fa-calendar-alt mr-1.5"></i>${dstr}</span>
+                        </div>
+                        <div class="flex items-start gap-2 mt-1">
+                            <div class="mt-1 p-1.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                                <i class="fas fa-tasks text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">${escHtml(nm)}</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">ASSIGNMENT DETAILS</p>
+                            </div>
+                        </div>
+                    </div>
+                 `;
+              }
+              
               const elAN = byId('gdmAssignName'); if (elAN) elAN.textContent = nm;
               const elAT = byId('gdmAssignTitle'); if (elAT) elAT.textContent = 'Assignment-wise Details';
             } catch {}

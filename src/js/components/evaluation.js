@@ -235,8 +235,25 @@ function _updateDependentFilters() {
         const assignedSections = teacher?.assignedSections || [];
         const assignedSubjects = teacher?.assignedSubjects || [];
         
-        if (assignedSections.length > 0) availableSections = sections.filter(s => assignedSections.includes(s.id));
-        if (assignedSubjects.length > 0) availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
+        if (assignedSections.length > 0) {
+             // Relaxed Section Filter: Match ID or Name
+             const assignedSectionNames = new Set(
+                sections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+             );
+             availableSections = sections.filter(s => 
+                assignedSections.includes(s.id) || (s.name && assignedSectionNames.has(s.name.trim()))
+             );
+        }
+
+        if (assignedSubjects.length > 0) {
+            // Relaxed Subject Filter: Match ID or Name
+            const assignedSubjectNames = new Set(
+                subjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+            );
+            availableSubjects = subjects.filter(s => 
+                assignedSubjects.includes(s.id) || (s.name && assignedSubjectNames.has(s.name.trim()))
+            );
+        }
     }
 
     if (selectedClassId) {
@@ -245,39 +262,51 @@ function _updateDependentFilters() {
         const groups = stateManager.get('groups') || [];
         
         const sectionsInClass = new Set();
+        const sectionNamesInClass = new Set(); // Track names too
+
+        const addSection = (sid) => {
+            if (!sid) return;
+            sectionsInClass.add(sid);
+            const sec = sections.find(s => s.id === sid);
+            if (sec && sec.name) sectionNamesInClass.add(sec.name.trim());
+        };
         
         // Check students
         students.forEach(s => {
-            if (s.classId === selectedClassId && s.sectionId) sectionsInClass.add(s.sectionId);
+            if (s.classId === selectedClassId) addSection(s.sectionId);
         });
         
-        // Check groups (some groups might be section-specific)
+        // Check groups
         groups.forEach(g => {
-            if (g.classId === selectedClassId && g.sectionId) sectionsInClass.add(g.sectionId);
+            if (g.classId === selectedClassId) addSection(g.sectionId);
         });
 
-        // Also check Tasks (tasks might be assigned to specific sections)
+        // Check Tasks
         tasks.forEach(t => {
-            if (t.classId === selectedClassId && t.sectionId) sectionsInClass.add(t.sectionId);
+            if (t.classId === selectedClassId) addSection(t.sectionId);
         });
 
         if (sectionsInClass.size > 0) {
-            availableSections = availableSections.filter(s => sectionsInClass.has(s.id));
-        } else {
-            // If no data found for this class, maybe show none or all? 
-            // Professional approach: Show all if no specific data restricts it, OR show none if we are strict.
-            // Let's show all as a fallback to allow creating new data if needed? 
-            // No, this is Evaluation, we only evaluate EXISTING data. So showing none or strict filter is better.
-            // But if it's a new class with no students yet, we can't evaluate anyway.
-            // Let's stick to the filter.
-             availableSections = availableSections.filter(s => sectionsInClass.has(s.id));
+            availableSections = availableSections.filter(s => 
+                sectionsInClass.has(s.id) || (s.name && sectionNamesInClass.has(s.name.trim()))
+            );
         }
         
         // Filter Subjects: Show only subjects that have TASKS for this class
-        const subjectsInClassTasks = new Set(
-            tasks.filter(t => t.classId === selectedClassId).map(t => t.subjectId)
+        const subjectsInClassTasks = new Set();
+        const subjectNamesInClassTasks = new Set();
+
+        tasks.filter(t => t.classId === selectedClassId).forEach(t => {
+            if (t.subjectId) {
+                subjectsInClassTasks.add(t.subjectId);
+                const sub = subjects.find(s => s.id === t.subjectId);
+                if (sub && sub.name) subjectNamesInClassTasks.add(sub.name.trim());
+            }
+        });
+
+        availableSubjects = availableSubjects.filter(s => 
+            subjectsInClassTasks.has(s.id) || (s.name && subjectNamesInClassTasks.has(s.name.trim()))
         );
-        availableSubjects = availableSubjects.filter(s => subjectsInClassTasks.has(s.id));
     }
 
     // Populate with current selection preservation
@@ -341,7 +370,20 @@ function _filterEvaluationOptions() {
     if (user && user.type === 'teacher') {
         const teacher = stateManager.get('currentTeacher');
         const assignedSubjects = teacher?.assignedSubjects || [];
-        filteredTasks = filteredTasks.filter(t => t.subjectId && assignedSubjects.includes(t.subjectId));
+        const subjects = stateManager.get('subjects') || [];
+        
+        // Relaxed Subject Filter: Match ID or Name
+        const assignedSubjectNames = new Set(
+            subjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+        );
+        
+        filteredTasks = filteredTasks.filter(t => {
+             if (!t.subjectId) return false;
+             if (assignedSubjects.includes(t.subjectId)) return true;
+             
+             const taskSubject = subjects.find(s => s.id === t.subjectId);
+             return taskSubject && taskSubject.name && assignedSubjectNames.has(taskSubject.name.trim());
+        });
     }
 
     // Apply Dropdown Filters to Tasks
@@ -372,7 +414,19 @@ function _filterEvaluationOptions() {
         console.log('📋 After section filter:', filteredTasks.length);
     }
     if (selectedSubjectId) {
-        filteredTasks = filteredTasks.filter(t => t.subjectId === selectedSubjectId);
+        const subjects = stateManager.get('subjects') || [];
+        const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
+        
+        if (selectedSubject && selectedSubject.name) {
+             const selectedName = selectedSubject.name.trim();
+             filteredTasks = filteredTasks.filter(t => {
+                 if (t.subjectId === selectedSubjectId) return true;
+                 const taskSubject = subjects.find(s => s.id === t.subjectId);
+                 return taskSubject && taskSubject.name && taskSubject.name.trim() === selectedName;
+             });
+        } else {
+             filteredTasks = filteredTasks.filter(t => t.subjectId === selectedSubjectId);
+        }
         console.log('📋 After subject filter:', filteredTasks.length);
     }
     
@@ -1032,6 +1086,17 @@ function _renderEvaluationList() {
       const assignedClasses = teacher?.assignedClasses || [];
       const assignedSections = teacher?.assignedSections || [];
       
+      const allSubjects = stateManager.get('subjects') || [];
+      const allSections = stateManager.get('sections') || [];
+
+      // Pre-calculate name sets for robust matching
+      const assignedSubjectNames = new Set(
+          allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+      );
+      const assignedSectionNames = new Set(
+          allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+      );
+
       const taskMap = new Map(tasks.map(t => [t.id, t]));
       const groupMap = new Map(groups.map(g => [g.id, g]));
 
@@ -1039,14 +1104,40 @@ function _renderEvaluationList() {
           const task = taskMap.get(e.taskId);
           const group = groupMap.get(e.groupId);
           
-          // Filter by subject (from task) - STRICT: must match assigned subject
-          const subjectMatch = task && task.subjectId ? assignedSubjects.includes(task.subjectId) : false;
+          // Filter by subject (from task) - Relaxed: Match ID or Name
+          let subjectMatch = false;
+          if (task && task.subjectId) {
+              if (assignedSubjects.includes(task.subjectId)) {
+                  subjectMatch = true;
+              } else {
+                  const sub = allSubjects.find(s => s.id === task.subjectId);
+                  if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) {
+                      subjectMatch = true;
+                  }
+              }
+          }
           
           // Filter by class/section (from evaluation or group)
+          // Class is usually strict ID
           const classMatch = e.classId ? assignedClasses.includes(e.classId) : 
                             (group?.classId ? assignedClasses.includes(group.classId) : true);
-          const sectionMatch = e.sectionId ? assignedSections.includes(e.sectionId) : 
-                              (group?.sectionId ? assignedSections.includes(group.sectionId) : true);
+          
+          // Section: Relaxed Match ID or Name
+          let sectionMatch = true; // Default true if no section info
+          const targetSectionId = e.sectionId || group?.sectionId;
+          
+          if (targetSectionId && assignedSections.length > 0) {
+              if (assignedSections.includes(targetSectionId)) {
+                  sectionMatch = true;
+              } else {
+                  const sec = allSections.find(s => s.id === targetSectionId);
+                  if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) {
+                      sectionMatch = true;
+                  } else {
+                      sectionMatch = false;
+                  }
+              }
+          }
 
           return subjectMatch && classMatch && sectionMatch;
       });

@@ -83,6 +83,15 @@ class ClassManagement {
               <input id="inputSession" name="session" type="text" class="form-input w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500" placeholder="যেমন: ২০২৪-২০২৫">
             </div>
 
+            <!-- Section Field (for subjects only) -->
+            <div id="sectionField" class="hidden">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">শাখা (ঐচ্ছিক)</label>
+              <select id="inputSection" name="sectionId" class="form-select w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
+                <option value="">শাখা নির্বাচন করুন</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">নির্দিষ্ট শাখার জন্য হলে সিলেক্ট করুন, অন্যথায় ফাঁকা রাখুন (পুরো ক্লাসের জন্য)।</p>
+            </div>
+
             <div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button type="button" id="btnCancelForm" class="flex-1 px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors">
                 বাতিল
@@ -185,12 +194,18 @@ class ClassManagement {
                 <button data-action="addSubject" data-classid="${cls.id}" class="text-xs px-3 py-1 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 rounded"><i class="fas fa-plus mr-1"></i>যোগ করুন</button>
               </div>
               <div class="space-y-2">
-                ${classSubjects.length ? classSubjects.map(sub => `
+                ${classSubjects.length ? classSubjects.map(sub => {
+                  const sectionName = sub.sectionId ? (sections.find(s => s.id === sub.sectionId)?.name || '') : '';
+                  return `
                   <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/30 rounded border border-gray-100 dark:border-gray-700">
-                    <span class="text-sm font-medium dark:text-gray-200">${this._escape(sub.name)}</span>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium dark:text-gray-200">${this._escape(sub.name)}</span>
+                        ${sectionName ? `<span class="text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded w-fit mt-0.5">${this._escape(sectionName)}</span>` : ''}
+                    </div>
                     <button data-action="deleteSubject" data-id="${sub.id}" class="text-red-500 hover:text-red-700 text-xs"><i class="fas fa-times"></i></button>
                   </div>
-                `).join('') : '<p class="text-xs text-gray-400 italic">কোনো বিষয় নেই</p>'}
+                `;
+                }).join('') : '<p class="text-xs text-gray-400 italic">কোনো বিষয় নেই</p>'}
               </div>
             </div>
           </div>
@@ -212,16 +227,31 @@ class ClassManagement {
     document.getElementById('modalTitle').textContent = id ? `${titles[type]} এডিট করুন` : `নতুন ${titles[type]}`;
     document.getElementById('inputName').placeholder = placeholders[type];
     
-    // Show/hide code and session fields based on type
+    // Show/hide code, session, and section fields based on type
     const codeField = document.getElementById('codeField');
     const sessionField = document.getElementById('sessionField');
+    const sectionField = document.getElementById('sectionField');
+    const inputSection = document.getElementById('inputSection');
     
     if (type === 'class') {
       codeField.classList.remove('hidden');
       sessionField.classList.remove('hidden');
+      sectionField.classList.add('hidden');
+    } else if (type === 'subject') {
+      codeField.classList.add('hidden');
+      sessionField.classList.add('hidden');
+      sectionField.classList.remove('hidden');
+      
+      // Populate Section Dropdown
+      const sections = stateManager.get('sections') || [];
+      const relevantSections = sections.filter(s => s.classId === classId);
+      
+      inputSection.innerHTML = '<option value="">শাখা নির্বাচন করুন (ঐচ্ছিক)</option>' + 
+        relevantSections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
     } else {
       codeField.classList.add('hidden');
       sessionField.classList.add('hidden');
+      sectionField.classList.add('hidden');
     }
     
     if (id) {
@@ -234,10 +264,15 @@ class ClassManagement {
       document.getElementById('inputName').value = item?.name || '';
       document.getElementById('inputCode').value = item?.code || '';
       document.getElementById('inputSession').value = item?.session || '';
+      
+      if (type === 'subject' && inputSection) {
+          inputSection.value = item?.sectionId || '';
+      }
     } else {
       document.getElementById('inputName').value = '';
       document.getElementById('inputCode').value = '';
       document.getElementById('inputSession').value = '';
+      if (inputSection) inputSection.value = '';
     }
     
     document.getElementById('classModal').classList.remove('hidden');
@@ -262,14 +297,50 @@ class ClassManagement {
     const name = (formData.get('name') || '').trim();
     const code = (formData.get('code') || '').trim();
     const session = (formData.get('session') || '').trim();
+    const sectionId = (formData.get('sectionId') || '').trim(); // Get sectionId
     
-    console.log('🔵 Form values (FormData):', { name, code, session });
+    console.log('🔵 Form values (FormData):', { name, code, session, sectionId });
     
     if (!name) {
       console.log('❌ Name validation failed - name is empty!');
       uiManager.showToast('নাম প্রয়োজন', 'warning');
       return;
     }
+
+    // --- Duplicate Check ---
+    const type = this.editingType;
+    const editingId = this.editingId;
+    const editingClassId = this.editingClassId;
+    
+    const collectionName = type === 'class' ? 'classes' : type === 'section' ? 'sections' : 'subjects';
+    const existingItems = stateManager.get(collectionName) || [];
+    
+    const isDuplicate = existingItems.some(item => {
+        // Skip self if editing
+        if (editingId && item.id === editingId) return false;
+        
+        // Check name match (case-insensitive)
+        if (item.name.trim().toLowerCase() === name.toLowerCase()) {
+             // For sections/subjects, also check if they belong to the same class
+             if (type !== 'class' && item.classId === editingClassId) {
+                 // For subjects, also check if section matches (or both are null)
+                 if (type === 'subject') {
+                     const itemSection = item.sectionId || '';
+                     const newSection = sectionId || '';
+                     return itemSection === newSection;
+                 }
+                 return true;
+             }
+             if (type === 'class') return true;
+        }
+        return false;
+    });
+
+    if (isDuplicate) {
+        uiManager.showToast('এই নামের ' + (type === 'class' ? 'ক্লাস' : type === 'section' ? 'শাখা' : 'বিষয়') + ' ইতিমধ্যে বিদ্যমান!', 'warning');
+        return;
+    }
+    // -----------------------
 
     uiManager.showLoading('সংরক্ষণ হচ্ছে...');
 
@@ -285,6 +356,7 @@ class ClassManagement {
         const updateData = { name };
         if (code) updateData.code = code;
         if (session) updateData.session = session;
+        if (type === 'subject') updateData.sectionId = sectionId || null; // Update sectionId
         
         await updateDocument(collection, editingId, updateData);
         uiManager.showToast('আপডেট সফল', 'success');
@@ -295,6 +367,8 @@ class ClassManagement {
         if (code) data.code = code;
         if (session) data.session = session;
         if (type !== 'class') data.classId = editingClassId;
+        if (type === 'subject' && sectionId) data.sectionId = sectionId; // Save sectionId
+
         
         const collection = type === 'class' ? 'classes' : type === 'section' ? 'sections' : 'subjects';
         await addDocument(collection, data);

@@ -151,14 +151,30 @@ export function render() {
   let filteredTasks = tasks;
 
   // Filter for teachers - STRICT: only show tasks for assigned subjects
+  // Filter for teachers - Relaxed: Match ID or Name
   if (user && user.type === 'teacher') {
       const teacher = stateManager.get('currentTeacher');
       const assignedSubjects = teacher?.assignedSubjects || [];
+      const allSubjects = stateManager.get('subjects') || [];
+
+      // Pre-calculate name sets for robust matching
+      const assignedSubjectNames = new Set(
+          allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+      );
+
       // Teachers can ONLY see tasks for their assigned subjects
       // Tasks without subjectId are NOT visible to teachers (admin-only tasks)
       filteredTasks = tasks.filter(t => {
           if (!t.subjectId) return false; // Hide tasks without subject from teachers
-          return assignedSubjects.includes(t.subjectId);
+          
+          // Match ID
+          if (assignedSubjects.includes(t.subjectId)) return true;
+          
+          // Match Name
+          const sub = allSubjects.find(s => s.id === t.subjectId);
+          if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
+          
+          return false;
       });
   }
 
@@ -238,20 +254,108 @@ function _populateSelectors() {
         const assignedSections = teacher?.assignedSections || [];
         const assignedSubjects = teacher?.assignedSubjects || [];
         
+        // Loose Matching Helpers
+        const assignedSectionNames = new Set(
+            sections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+        );
+        const assignedSubjectNames = new Set(
+            subjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+        );
+
         if (assignedClasses.length > 0) {
             availableClasses = classes.filter(c => assignedClasses.includes(c.id));
         }
         if (assignedSections.length > 0) {
-            availableSections = sections.filter(s => assignedSections.includes(s.id));
+            availableSections = sections.filter(s => 
+                assignedSections.includes(s.id) || 
+                (s.name && assignedSectionNames.has(s.name.trim()))
+            );
         }
         if (assignedSubjects.length > 0) {
-            availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
+            availableSubjects = subjects.filter(s => 
+                assignedSubjects.includes(s.id) || 
+                (s.name && assignedSubjectNames.has(s.name.trim()))
+            );
         }
     }
 
     if (elements.taskClassInput) uiManager.populateSelect(elements.taskClassInput, availableClasses.map(c => ({ value: c.id, text: c.name })), 'ক্লাস নির্বাচন করুন');
-    if (elements.taskSectionInput) uiManager.populateSelect(elements.taskSectionInput, availableSections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন');
-    if (elements.taskSubjectInput) uiManager.populateSelect(elements.taskSubjectInput, availableSubjects.map(s => ({ value: s.id, text: s.name })), 'বিষয় নির্বাচন করুন');
+    
+    // Initial population (will be refined by event listener if class is selected)
+    _populateDependentDropdowns(availableSections, availableSubjects);
+}
+
+function _populateDependentDropdowns(sections, subjects) {
+    if (elements.taskSectionInput) uiManager.populateSelect(elements.taskSectionInput, sections.map(s => ({ value: s.id, text: s.name })), 'শাখা নির্বাচন করুন');
+    if (elements.taskSubjectInput) uiManager.populateSelect(elements.taskSubjectInput, subjects.map(s => ({ value: s.id, text: s.name })), 'বিষয় নির্বাচন করুন');
+}
+
+function _updateDependentDropdowns(classId) {
+    const sectionsRaw = stateManager.get('sections') || [];
+    const subjectsRaw = stateManager.get('subjects') || [];
+    const user = stateManager.get('currentUserData');
+
+    // Start with RAW data, do not deduplicate globally yet
+    let filteredSections = sectionsRaw;
+    
+    // Subjects are usually global or loosely coupled, so we can deduplicate them initially 
+    // or keep them raw. Let's keep them raw to be safe and deduplicate at the end.
+    let filteredSubjects = subjectsRaw;
+
+    // 1. Filter by Class (if selected)
+    if (classId) {
+        // Loose Class Matching: Find all class IDs that share the same name as the selected class
+        const allClasses = stateManager.get('classes') || [];
+        const selectedClass = allClasses.find(c => c.id === classId);
+        const selectedClassName = selectedClass?.name?.trim();
+
+        if (selectedClassName) {
+            const sameNameClassIds = allClasses
+                .filter(c => c.name?.trim() === selectedClassName)
+                .map(c => c.id);
+            
+            filteredSections = filteredSections.filter(s => sameNameClassIds.includes(s.classId));
+        } else {
+            filteredSections = filteredSections.filter(s => s.classId === classId);
+        }
+    }
+
+    // 2. Filter by Teacher (Loose Matching)
+    if (user && user.type === 'teacher') {
+        const teacher = stateManager.get('currentTeacher');
+        const assignedSections = teacher?.assignedSections || [];
+        const assignedSubjects = teacher?.assignedSubjects || [];
+        
+        const assignedSectionNames = new Set(
+            sectionsRaw.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+        );
+        const assignedSubjectNames = new Set(
+            subjectsRaw.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+        );
+
+        if (assignedSections.length > 0) {
+            filteredSections = filteredSections.filter(s => {
+                const matchId = assignedSections.includes(s.id);
+                const matchName = s.name && assignedSectionNames.has(s.name.trim());
+                return matchId || matchName;
+            });
+        }
+        if (assignedSubjects.length > 0) {
+            filteredSubjects = filteredSubjects.filter(s => {
+                const matchId = assignedSubjects.includes(s.id);
+                const matchName = s.name && assignedSubjectNames.has(s.name.trim());
+                return matchId || matchName;
+            });
+        }
+    }
+
+    // 3. Final Deduplication (by Name) to ensure clean dropdowns
+    // Now that we have filtered by Class and Teacher, we can remove duplicate names 
+    // (e.g. if multiple "Section A" IDs passed the filters for this class)
+    filteredSections = Array.from(new Map(filteredSections.map(s => [s.name?.trim(), s])).values());
+    filteredSubjects = Array.from(new Map(filteredSubjects.map(s => [s.name?.trim(), s])).values());
+
+    _populateDependentDropdowns(filteredSections, filteredSubjects);
 }
 
 /**
@@ -262,6 +366,14 @@ function _setupEventListeners() {
   if (!elements.page) return;
 
   uiManager.addListener(elements.addTaskBtn, 'click', _handleAddTask);
+
+  // Add listener to Class Input to filter Sections and Subjects
+  if (elements.taskClassInput) {
+      uiManager.addListener(elements.taskClassInput, 'change', () => {
+          const selectedClassId = elements.taskClassInput.value;
+          _updateDependentDropdowns(selectedClassId);
+      });
+  }
 
   // Add listeners to breakdown inputs to update total display
   const breakdownInputs = [

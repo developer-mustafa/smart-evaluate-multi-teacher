@@ -18,6 +18,14 @@ const cachedRankingData = {
   students: [],
   classes: [],
   sections: [],
+  subjects: [],
+};
+
+// Filter state
+const filterState = {
+  classId: '',
+  sectionId: '',
+  subjectId: '',
 };
 
 // Ranking criteria
@@ -255,12 +263,79 @@ export function render() {
     const user = stateManager.get('currentUserData');
 
     if (user && user.type === 'teacher') {
-        students = stateManager.getFilteredData('students');
-        evaluations = stateManager.getFilteredData('evaluations');
-        tasks = stateManager.getFilteredData('tasks');
-        groups = stateManager.getFilteredData('groups');
-        classes = stateManager.get('classes'); // Classes/Sections usually don't need filtering for display context, but could be.
+
+        // Manual loose filtering for Teachers to handle ID mismatches (Deduplication support)
+        const allStudents = stateManager.get('students') || [];
+        const allEvaluations = stateManager.get('evaluations') || [];
+        const allTasks = stateManager.get('tasks') || [];
+        const allGroups = stateManager.get('groups') || [];
+        
+        const teacher = stateManager.get('currentTeacher');
+        const assignedClasses = teacher?.assignedClasses || [];
+        const assignedSections = teacher?.assignedSections || [];
+        const assignedSubjects = teacher?.assignedSubjects || [];
+        
+        const allSections = stateManager.get('sections') || [];
+        const allSubjects = stateManager.get('subjects') || [];
+
+        // 1. Filter Students (Class + Section Name Match)
+        const assignedSectionNames = new Set(
+            allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+        );
+        students = allStudents.filter(s => {
+            if (assignedClasses.length > 0 && !assignedClasses.includes(s.classId)) return false;
+            // Section: Match ID OR Name
+            if (assignedSections.length > 0) {
+                if (assignedSections.includes(s.sectionId)) return true;
+                const sec = allSections.find(sec => sec.id === s.sectionId);
+                if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+                return false;
+            }
+            return true;
+        });
+
+        // 2. Filter Tasks (Subject Name Match)
+        const assignedSubjectNames = new Set(
+            allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+        );
+        tasks = allTasks.filter(t => {
+            // Subject: Match ID OR Name
+            if (assignedSubjects.length > 0) {
+                if (t.subjectId && assignedSubjects.includes(t.subjectId)) return true;
+                if (t.subjectId) {
+                    const sub = allSubjects.find(s => s.id === t.subjectId);
+                    if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
+                }
+                return false;
+            }
+            return true;
+        });
+
+        // 3. Filter Groups (Class Match - Universal)
+        groups = allGroups.filter(g => {
+            if (assignedClasses.length > 0 && !assignedClasses.includes(g.classId)) return false;
+            return true;
+        });
+
+        // 4. Filter Evaluations (Based on filtered Tasks)
+        const filteredTaskIds = new Set(tasks.map(t => t.id));
+        evaluations = allEvaluations.filter(e => filteredTaskIds.has(e.taskId));
+
+        classes = stateManager.get('classes');
         sections = stateManager.get('sections');
+        
+        // Filter subjects based on relevant tasks
+        const relevantSubjectIds = new Set(tasks.map(t => t.subjectId));
+        cachedRankingData.subjects = allSubjects.filter(s => relevantSubjectIds.has(s.id));
+
+        // Automatic Teacher Filtering: Set initial filter state based on assignments
+        if (user.assignedClassId) filterState.classId = user.assignedClassId;
+        if (user.assignedSectionId) filterState.sectionId = user.assignedSectionId;
+        if (user.assignedSubjectId) filterState.subjectId = user.assignedSubjectId;
+        
+        // If teacher has assigned subjects but no specific single subject ID in user object (e.g. array), 
+        // we might want to default to the first one or handle it. 
+        // Assuming user.assignedSubjectId is the single assigned subject for now as per "Teacher Management".
     } else {
         const state = stateManager.getState();
         students = state.students;
@@ -269,6 +344,7 @@ export function render() {
         groups = state.groups;
         classes = state.classes;
         sections = state.sections;
+        cachedRankingData.subjects = state.subjects || [];
     }
 
     if (!students || !evaluations || !tasks) {
@@ -276,20 +352,76 @@ export function render() {
       return;
     }
 
-    const rankedStudents = _calculateStudentRankings(students, evaluations, tasks);
-    const rankedGroups = _calculateGroupRankings(students, evaluations, groups || []);
+    cachedRankingData.groups = groups || [];
+    cachedRankingData.students = students || [];
+    cachedRankingData.evaluations = evaluations || [];
+    cachedRankingData.tasks = tasks || [];
+    cachedRankingData.classes = classes || [];
+    cachedRankingData.sections = sections || [];
+    
+    // Re-cache filter elements if missing (in case of dynamic updates)
+    if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter) {
+        elements.classFilter = elements.page.querySelector('#rankingClassFilter');
+        elements.sectionFilter = elements.page.querySelector('#rankingSectionFilter');
+        elements.subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
+    }
+
+    // Default Subject Selection (if none selected)
+    if (!filterState.subjectId) {
+        if (user && user.type === 'teacher') {
+            // Priority: assignedSubjectId -> first of assignedSubjects -> first of available subjects
+            if (user.assignedSubjectId) {
+                filterState.subjectId = user.assignedSubjectId;
+            } else if (user.assignedSubjects && user.assignedSubjects.length > 0) {
+                filterState.subjectId = user.assignedSubjects[0];
+            } else if (cachedRankingData.subjects.length > 0) {
+                filterState.subjectId = cachedRankingData.subjects[0].id;
+            }
+        } else {
+            // For Admin/Others: Default to first subject if available
+            if (cachedRankingData.subjects.length > 0) {
+                filterState.subjectId = cachedRankingData.subjects[0].id;
+            }
+        }
+    }
+
+    // Populate filters (will use filterState)
+    _populateFilters();
+
+    // Apply filters to Evaluations
+    const filteredEvaluations = _applyFiltersToEvaluations(evaluations, tasks, students);
+    
+    // Apply filters to Students (Explicitly)
+    let filteredStudents = students || [];
+    if (filterState.classId) {
+        filteredStudents = filteredStudents.filter(s => String(s.classId) === String(filterState.classId));
+    }
+    if (filterState.sectionId) {
+         const sectionId = filterState.sectionId;
+         const section = cachedRankingData.sections.find(s => s.id === sectionId);
+         const sectionName = section?.name?.trim().toLowerCase();
+         
+         filteredStudents = filteredStudents.filter(s => {
+             if (String(s.sectionId) === String(sectionId)) return true;
+             if (sectionName && s.sectionId) {
+                 const sSection = cachedRankingData.sections.find(sec => sec.id === s.sectionId);
+                 if (sSection && sSection.name?.trim().toLowerCase() === sectionName) return true;
+             }
+             return false;
+         });
+    }
+
+    const rankedStudents = _calculateStudentRankings(filteredStudents, filteredEvaluations, tasks);
+    const rankedGroups = _calculateGroupRankings(filteredStudents, filteredEvaluations, groups || []);
 
     cachedRankingData.rankedStudents = rankedStudents;
     cachedRankingData.rankedGroups = rankedGroups;
-    cachedRankingData.groups = groups || [];
-    cachedRankingData.students = students || [];
-    cachedRankingData.classes = classes || [];
-    cachedRankingData.sections = sections || [];
+    
     studentSearchState.name = '';
     studentSearchState.roll = '';
     uiTabState.active = 'students'; // default active tab
 
-    _renderRankingList(rankedStudents, rankedGroups, groups || [], students, classes || [], sections || []);
+    _renderRankingList(rankedStudents, rankedGroups, groups || [], filteredStudents, classes || [], sections || []);
   } catch (error) {
     console.error('❌ Error rendering student ranking:', error);
     uiManager.displayEmptyMessage(elements.studentRankingListContainer, 'র‍্যাঙ্কিং লোড করতে একটি ত্রুটি ঘটেছে।');
@@ -305,6 +437,9 @@ function _cacheDOMElements() {
   if (elements.page) {
     elements.refreshRankingBtn = elements.page.querySelector('#refreshRanking');
     elements.studentRankingListContainer = elements.page.querySelector('#studentRankingList');
+    elements.classFilter = elements.page.querySelector('#rankingClassFilter');
+    elements.sectionFilter = elements.page.querySelector('#rankingSectionFilter');
+    elements.subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
   } else {
     console.error('❌ Ranking init failed: #page-student-ranking element not found!');
   }
@@ -320,6 +455,25 @@ function _setupEventListeners() {
       console.error('❌ Error refreshing ranking data:', error);
       uiManager.showToast('র‍্যাঙ্কিং রিফ্রেশ করতে সমস্যা হয়েছে।', 'error');
     }
+  });
+
+  // Filter Change Listeners (Delegation)
+  uiManager.addListener(elements.page, 'change', (e) => {
+      if (e.target.id === 'rankingClassFilter' || 
+          e.target.id === 'rankingSectionFilter' || 
+          e.target.id === 'rankingSubjectFilter') {
+          
+          // Re-query elements to be safe
+          const classFilter = elements.page.querySelector('#rankingClassFilter');
+          const sectionFilter = elements.page.querySelector('#rankingSectionFilter');
+          const subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
+
+          filterState.classId = classFilter?.value || '';
+          filterState.sectionId = sectionFilter?.value || '';
+          filterState.subjectId = subjectFilter?.value || '';
+          
+          _rerenderRankingWithFilters();
+      }
   });
 
   // Card click → open student modal if available
@@ -476,6 +630,177 @@ function _calculateGroupRankings(students, evaluations, groups) {
   return rankedGroups;
 }
 
+function _populateFilters() {
+    if (elements.classFilter && cachedRankingData.classes) {
+        uiManager.populateSelect(elements.classFilter, cachedRankingData.classes.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
+        elements.classFilter.value = filterState.classId;
+        
+        // If teacher has assigned class, disable filter or just keep it selected?
+        // User request: "Teacher automatically sees...". Doesn't explicitly say disable.
+        // But if they are RESTRICTED, maybe disable. 
+        // Let's just select it for now. If they are restricted, they shouldn't see other options anyway (handled by getFilteredData usually).
+        // However, getFilteredData might return more if the teacher has access to multiple.
+        // If we want to enforce "Only see that", we should probably hide other options or disable.
+        const user = stateManager.get('currentUserData');
+        if (user && user.type === 'teacher' && user.assignedClassId) {
+             // If strictly assigned, maybe we should disable? 
+             // Let's leave it enabled but selected, assuming getFilteredData restricts the list if needed.
+             // Or if getFilteredData returns multiple, they can switch.
+             // But the request says "Automatic... from dashboard see ONLY that".
+        }
+    }
+    
+    if (elements.sectionFilter && cachedRankingData.sections) {
+        // Deduplicate sections by name
+        const uniqueSections = [];
+        const seenNames = new Set();
+        cachedRankingData.sections.forEach(s => {
+            const name = s.name?.trim();
+            if (name && !seenNames.has(name)) {
+                seenNames.add(name);
+                uniqueSections.push(s);
+            }
+        });
+        uiManager.populateSelect(elements.sectionFilter, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
+        elements.sectionFilter.value = filterState.sectionId;
+    }
+
+    if (elements.subjectFilter && cachedRankingData.subjects) {
+         // Deduplicate subjects by name
+        const uniqueSubjects = [];
+        const seenNames = new Set();
+        cachedRankingData.subjects.forEach(s => {
+            const name = s.name?.trim();
+            if (name && !seenNames.has(name)) {
+                seenNames.add(name);
+                uniqueSubjects.push(s);
+            }
+        });
+        uiManager.populateSelect(elements.subjectFilter, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+        elements.subjectFilter.value = filterState.subjectId;
+    }
+}
+
+function _applyFiltersToEvaluations(evaluations, tasks, students) {
+    let filtered = evaluations;
+    
+    // 1. Filter by Subject
+    // 1. Filter by Subject
+    if (filterState.subjectId) {
+        const subjectId = filterState.subjectId;
+        // Find subject name for robust filtering
+        const subject = cachedRankingData.subjects.find(s => s.id === subjectId);
+        const subjectName = subject?.name?.trim().toLowerCase();
+
+        const taskMap = new Map(tasks.map(t => [t.id, t]));
+        
+        filtered = filtered.filter(e => {
+            const task = taskMap.get(e.taskId);
+            if (!task) return false;
+            
+            // ID Match
+            if (String(task.subjectId) === String(subjectId)) return true;
+            
+            // Name fallback
+            if (subjectName && task.subjectId) {
+                 const tSubject = cachedRankingData.subjects.find(s => s.id === task.subjectId);
+                 if (tSubject && tSubject.name?.trim().toLowerCase() === subjectName) return true;
+            }
+            return false;
+        });
+    }
+
+    // 2. Filter by Class/Section (Indirectly via Students)
+    if (filterState.classId || filterState.sectionId) {
+        const studentMap = new Map(students.map(s => [s.id, s]));
+        const sectionId = filterState.sectionId;
+        const section = cachedRankingData.sections.find(s => s.id === sectionId);
+        const sectionName = section?.name?.trim().toLowerCase();
+
+        filtered = filtered.filter(e => {
+            // Check scores to find students
+            if (!e.scores) return false;
+            
+            // If ANY student in the evaluation matches the filter, keep the evaluation?
+            // OR filter the SCORES inside the evaluation?
+            // Ranking calculation iterates over scores. 
+            // So we should probably filter the scores inside _calculateStudentRankings, 
+            // OR we filter evaluations that contain RELEVANT students.
+            // But _calculateStudentRankings iterates evaluations.
+            
+            // Actually, if we filter evaluations, we remove the whole evaluation.
+            // If a group evaluation has students from multiple sections (unlikely but possible),
+            // removing the evaluation removes it for everyone.
+            
+            // Better approach: Filter STUDENTS list passed to _calculateStudentRankings.
+            // And _calculateStudentRankings only considers students in that list.
+            // But _calculateGroupRankings needs to know which evaluations are relevant.
+            
+            // Let's filter evaluations based on whether they belong to a task for that class?
+            // Tasks have classId/sectionId.
+            const task = tasks.find(t => t.id === e.taskId);
+            if (!task) return false;
+            
+            if (filterState.classId && String(task.classId) !== String(filterState.classId)) return false;
+            
+            // Section filter on Task is tricky because tasks might be shared or have different section IDs.
+            // But usually tasks are assigned to a class/section.
+            if (filterState.sectionId) {
+                 if (String(task.sectionId) === String(sectionId)) return true;
+                 // Name match
+                 if (sectionName && task.sectionId) {
+                     const tSection = cachedRankingData.sections.find(s => s.id === task.sectionId);
+                     if (tSection && tSection.name?.trim().toLowerCase() === sectionName) return true;
+                 }
+                 // If task has NO section, it might be for all sections.
+                 if (!task.sectionId) return true; 
+                 
+                 return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    return filtered;
+}
+
+function _rerenderRankingWithFilters() {
+    uiManager.showLoading('র‍্যাঙ্কিং আপডেট করা হচ্ছে...');
+    setTimeout(() => {
+        const filteredEvaluations = _applyFiltersToEvaluations(cachedRankingData.evaluations || [], cachedRankingData.tasks || [], cachedRankingData.students || []);
+        
+        // Also filter students if Class/Section selected (for Student Ranking)
+        let filteredStudents = cachedRankingData.students || [];
+        if (filterState.classId) {
+            filteredStudents = filteredStudents.filter(s => String(s.classId) === String(filterState.classId));
+        }
+        if (filterState.sectionId) {
+             const sectionId = filterState.sectionId;
+             const section = cachedRankingData.sections.find(s => s.id === sectionId);
+             const sectionName = section?.name?.trim().toLowerCase();
+             
+             filteredStudents = filteredStudents.filter(s => {
+                 if (String(s.sectionId) === String(sectionId)) return true;
+                 if (sectionName && s.sectionId) {
+                     const sSection = cachedRankingData.sections.find(sec => sec.id === s.sectionId);
+                     if (sSection && sSection.name?.trim().toLowerCase() === sectionName) return true;
+                 }
+                 return false;
+             });
+        }
+
+        const rankedStudents = _calculateStudentRankings(filteredStudents, filteredEvaluations, cachedRankingData.tasks || []);
+        const rankedGroups = _calculateGroupRankings(filteredStudents, filteredEvaluations, cachedRankingData.groups || []);
+        
+        cachedRankingData.rankedStudents = rankedStudents;
+        cachedRankingData.rankedGroups = rankedGroups;
+        
+        _renderRankingList(rankedStudents, rankedGroups, cachedRankingData.groups, filteredStudents, cachedRankingData.classes, cachedRankingData.sections);
+        uiManager.hideLoading();
+    }, 50);
+}
+
 /* ---------------- Render (Tabs + Compact Cards) ---------------- */
 
 function _renderRankingList(rankedStudents, rankedGroups, groups, students, classes, sections, options = {}) {
@@ -560,6 +885,17 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, clas
             const className = classesMap.get(s.classId) || '';
             const sectionName = sectionsMap.get(s.sectionId) || '';
             
+            // Subject Badge (if filtered)
+            let subjectBadge = '';
+            if (filterState.subjectId) {
+                const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
+                if (subject) {
+                     subjectBadge = `<div class="rk-badge rk-badge--compact" style="--rk-badge-bg:rgba(99,102,241,0.1); --rk-badge-fg:#4f46e5; --rk-badge-border:rgba(99,102,241,0.2);">
+                        <i class="fas fa-book"></i> ${subject.name}
+                     </div>`;
+                }
+            }
+
             const idLine = `রোল: ${toBn(s.roll || '—')} · ক্লাস: ${className} · শাখা: ${sectionName} · গ্রুপ: ${_escapeHtml(groupName)}`;
 
             // Badges: Academic Branch + Role (soft colors)
@@ -590,6 +926,7 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, clas
               <div class="rk-badges">
                 ${branchBadge}
                 ${roleBadge}
+                ${subjectBadge}
               </div>
 
               <div class="flex gap-4 sm:gap-8 mt-2 text-[10px] sm:text-sm font-semibold">
@@ -641,6 +978,10 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, clas
                 <div class="rk-chip px-2 py-1">গড়: ${avgPct}%</div>
                 <div class="rk-chip px-2 py-1">এসাইনমেন্ট অংশগ্রহন: ${evals} টি</div>
               </div>
+              ${filterState.subjectId ? (() => {
+                  const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
+                  return subject ? `<div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium border border-indigo-100 dark:border-indigo-800"><i class="fas fa-book"></i> ${subject.name}</div>` : '';
+              })() : ''}
               <p class="rk-micro mt-2 text-gray-600 dark:text-gray-300 truncate" title="${membersLine}">${membersLine}</p>
             </div>
           </div>

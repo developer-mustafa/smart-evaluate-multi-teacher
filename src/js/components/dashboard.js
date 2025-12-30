@@ -60,12 +60,30 @@ export function render() {
     let groups, students, tasks, evaluations;
     
     if (currentUserType === 'teacher') {
-      // Teachers see only their assigned data
-      groups = stateManager.getFilteredData('groups');
-      students = stateManager.getFilteredData('students');
-      tasks = stateManager.getFilteredData('tasks');
-      evaluations = stateManager.getFilteredData('evaluations');
-      console.log('📚 Teacher mode: Using filtered data');
+      // Teachers see only their assigned data - Manual Loose Filtering
+      // groups = stateManager.getFilteredData('groups');
+      // students = stateManager.getFilteredData('students');
+      // tasks = stateManager.getFilteredData('tasks');
+      // evaluations = stateManager.getFilteredData('evaluations');
+      
+      const teacher = stateManager.get('currentTeacher');
+      const state = {
+          tasks: stateManager.get('tasks') || [],
+          subjects: stateManager.get('subjects') || [],
+          evaluations: stateManager.get('evaluations') || [],
+          students: stateManager.get('students') || [],
+          groups: stateManager.get('groups') || [],
+          sections: stateManager.get('sections') || [],
+          classes: stateManager.get('classes') || []
+      };
+
+      const filtered = _getFilteredDataForTeacher(state, teacher);
+      tasks = filtered.tasks;
+      evaluations = filtered.evaluations;
+      students = filtered.students;
+      groups = filtered.groups;
+
+      console.log('📚 Teacher mode: Using loose filtered data');
     } else {
       // Admin/Super-admin: Apply activeContext filters if set
       const state = stateManager.getState();
@@ -76,7 +94,6 @@ export function render() {
       
       // Apply admin filters based on activeContext
       if (activeContext.classId || activeContext.sectionId || activeContext.subjectId) {
-        console.log('🔧 Admin mode: Applying activeContext filters:', activeContext);
         
         // Get lookup data for name-based matching
         const allSections = stateManager.get('sections') || [];
@@ -107,7 +124,8 @@ export function render() {
           tasks = tasks.filter(t => {
             if (!t.subjectId) return false;
             const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
-            return taskSubject?.name?.trim() === selectedSubjectName;
+            const match = taskSubject?.name?.trim() === selectedSubjectName;
+            return match;
           });
         }
         
@@ -122,13 +140,6 @@ export function render() {
           const filteredTaskIds = new Set(tasks.map(t => t.id));
           evaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
         }
-        
-        console.log('📊 Filtered data:', {
-          groups: groups.length,
-          students: students.length,
-          tasks: tasks.length,
-          evaluations: evaluations.length
-        });
       }
     }
     if (!groups || !students || !tasks || !evaluations) {
@@ -966,6 +977,67 @@ function _populateAssignmentFilter(tasks) {
   });
 }
 
+
+
+function _populateDashboardFilters(userType, teacherData) {
+    const classSelect = document.getElementById('dashboardClassFilter');
+    const sectionSelect = document.getElementById('dashboardSectionFilter');
+    const subjectSelect = document.getElementById('dashboardSubjectFilter');
+    
+    if (!classSelect || !sectionSelect || !subjectSelect) return;
+    
+    const allClasses = stateManager.get('classes') || [];
+    const allSections = stateManager.get('sections') || [];
+    const allSubjects = stateManager.get('subjects') || [];
+    
+    // Helper to populate select
+    const populate = (select, items, assignedIds = null) => {
+        // Keep first option (All)
+        while (select.options.length > 1) select.remove(1);
+        
+        items.forEach(item => {
+            if (assignedIds && !assignedIds.includes(item.id)) return;
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = item.name;
+            select.appendChild(option);
+        });
+    };
+    
+    if (userType === 'teacher' && teacherData) {
+        // Teacher: Filter by assignments
+        populate(classSelect, allClasses, teacherData.assignedClasses);
+        populate(sectionSelect, allSections, teacherData.assignedSections);
+        populate(subjectSelect, allSubjects, teacherData.assignedSubjects);
+    } else {
+        // Admin: Show all
+        populate(classSelect, allClasses);
+        populate(sectionSelect, allSections);
+        populate(subjectSelect, allSubjects);
+    }
+    
+    // Dynamic Section Filtering based on Class Selection
+    classSelect.addEventListener('change', () => {
+        const selectedClassId = classSelect.value;
+        const relevantSections = selectedClassId 
+            ? allSections.filter(s => s.classId === selectedClassId)
+            : allSections;
+            
+        // Re-populate section select
+        while (sectionSelect.options.length > 1) sectionSelect.remove(1);
+        
+        relevantSections.forEach(s => {
+            // For teachers, still respect assignments
+            if (userType === 'teacher' && teacherData && !teacherData.assignedSections.includes(s.id)) return;
+            
+            const option = document.createElement('option');
+            option.value = s.id;
+            option.textContent = s.name;
+            sectionSelect.appendChild(option);
+        });
+    });
+}
+
 function _updateDashboardForTask(taskId) {
   console.log('🔄 Filter changed to:', taskId);
   
@@ -976,6 +1048,58 @@ function _updateDashboardForTask(taskId) {
   // Apply filtering based on user type and activeContext
   const currentUserType = stateManager.get('currentUserData')?.type;
   const activeContext = stateManager.get('activeContext') || {};
+  
+  // Initialize filtered variables with base data
+  let filteredTasks = tasks;
+  let filteredEvaluations = evaluations;
+
+  // Apply TEACHER filtering (assigned subjects, classes, sections) - GLOBAL for this function
+  const currentTeacher = stateManager.get('currentTeacher');
+  if (currentUserType === 'teacher' && currentTeacher) {
+      const stateForFilter = {
+          tasks: tasks, // Use current tasks (might be already filtered or raw) - actually we should start from raw if possible, but here we receive 'state'
+          subjects: stateManager.get('subjects') || [],
+          evaluations: evaluations,
+          students: students,
+          groups: groups,
+          sections: stateManager.get('sections') || [],
+          classes: stateManager.get('classes') || []
+      };
+      
+      const filtered = _getFilteredDataForTeacher(stateForFilter, currentTeacher);
+      filteredTasks = filtered.tasks;
+      filteredEvaluations = filtered.evaluations;
+      students = filtered.students;
+      groups = filtered.groups;
+      
+      console.log('👨‍🏫 Teacher Dashboard: Filtered by assignments via helper');
+
+      // 5. Apply Active Context Filters (User Selection)
+      // These filters are applied ON TOP of the assignment filters
+      if (activeContext.classId) {
+          students = students.filter(s => s.classId === activeContext.classId);
+          groups = groups.filter(g => g.classId === activeContext.classId);
+      }
+
+      if (activeContext.sectionId) {
+          students = students.filter(s => s.sectionId === activeContext.sectionId);
+          groups = groups.filter(g => g.sectionId === activeContext.sectionId);
+      }
+
+      if (activeContext.subjectId) {
+          filteredTasks = filteredTasks.filter(t => t.subjectId === activeContext.subjectId);
+          // Re-filter evaluations based on new filtered tasks
+          const newFilteredTaskIds = new Set(filteredTasks.map(t => t.id));
+          filteredEvaluations = filteredEvaluations.filter(e => newFilteredTaskIds.has(e.taskId));
+      }
+      
+      console.log('📊 Filtered Data (Assignments + Selection):', {
+          tasks: filteredTasks.length,
+          evaluations: filteredEvaluations.length,
+          students: students.length,
+          groups: groups.length
+      });
+  }
   
   // Apply admin filters based on activeContext (same logic as render function)
   if (currentUserType !== 'teacher' && (activeContext.classId || activeContext.sectionId || activeContext.subjectId)) {
@@ -1007,7 +1131,7 @@ function _updateDashboardForTask(taskId) {
     
     // Filter tasks by subject (name-based matching)
     if (activeContext.subjectId && selectedSubjectName) {
-      tasks = tasks.filter(t => {
+      filteredTasks = filteredTasks.filter(t => {
         if (!t.subjectId) return false;
         const taskSubject = allSubjects.find(sub => sub.id === t.subjectId);
         return taskSubject?.name?.trim() === selectedSubjectName;
@@ -1022,45 +1146,36 @@ function _updateDashboardForTask(taskId) {
     
     // Filter evaluations to only those for filtered tasks
     if (activeContext.subjectId) {
-      const filteredTaskIds = new Set(tasks.map(t => t.id));
-      evaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
+      const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+      filteredEvaluations = filteredEvaluations.filter(e => filteredTaskIds.has(e.taskId));
     }
   }
   
   let targetTask = null;
   let summary = null;
-  let filteredEvaluations = evaluations;
 
   if (taskId === 'global_rank') {
       // --- Global Rank Logic ---
       
-      // Filter tasks and evaluations for teachers based on assigned subjects
-      const currentUserType = stateManager.get('currentUserData')?.type;
-      const currentTeacher = stateManager.get('currentTeacher');
-      let filteredTasks = tasks;
-      let filteredEvaluations = evaluations;
-      
-      if (currentUserType === 'teacher' && currentTeacher) {
-          const assignedSubjects = currentTeacher.assignedSubjects || [];
-          console.log('👨‍🏫 Teacher Global Rank: Filtering by assigned subjects:', assignedSubjects);
-          
-          // Filter tasks to only include those from assigned subjects
-          filteredTasks = tasks.filter(t => t.subjectId && assignedSubjects.includes(t.subjectId));
-          console.log('📊 Filtered tasks from', tasks.length, 'to', filteredTasks.length);
-          
-          // Filter evaluations to only include those for the filtered tasks
-          const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
-          filteredEvaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
-          console.log('📊 Filtered evaluations from', evaluations.length, 'to', filteredEvaluations.length);
-      }
+      // Note: filteredTasks and filteredEvaluations are already prepared above
       
       // 1. Calculate Stats using filtered evaluations and tasks
       const stats = _calculateStats(groups, students, filteredTasks, filteredEvaluations);
       
+      // Determine Display Subject (if all filtered tasks belong to one subject)
+      let displaySubject = '';
+      const uniqueSubjectIds = new Set(filteredTasks.map(t => t.subjectId).filter(Boolean));
+      if (uniqueSubjectIds.size === 1) {
+          const subjects = stateManager.get('subjects') || [];
+          const subjectId = [...uniqueSubjectIds][0];
+          const subject = subjects.find(s => s.id === subjectId);
+          displaySubject = subject?.name || '';
+      }
+
       // 2. Render Rankings (This is the core request)
       _renderTopGroups(stats.groupPerformanceData);
       _renderAcademicGroups(stats.academicGroupStats);
-      _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta);
+      _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta, displaySubject);
 
       // 3. Update Titles & Labels
       if (elements.latestTaskTitle) {
@@ -1178,23 +1293,33 @@ function _updateDashboardForTask(taskId) {
 
   if (taskId === 'latest') {
     // Find the latest task first
-    const fullStats = _calculateStats(groups, students, tasks, evaluations);
+    // Use filteredTasks and filteredEvaluations to respect teacher permissions
+    const fullStats = _calculateStats(groups, students, filteredTasks, filteredEvaluations);
     const latestSummary = fullStats.latestAssignmentSummary;
     
     if (latestSummary && latestSummary.taskId) {
-        targetTask = tasks.find(t => t.id === latestSummary.taskId);
+        targetTask = filteredTasks.find(t => t.id === latestSummary.taskId);
         if (targetTask) {
             // Filter evaluations for the latest task
-            filteredEvaluations = evaluations.filter(e => String(e.taskId) === String(targetTask.id));
+            // Use filteredEvaluations to respect teacher permissions
+            const latestTaskEvals = filteredEvaluations.filter(e => String(e.taskId) === String(targetTask.id));
             
             // Calculate stats based ONLY on this latest task's evaluations
-            const stats = _calculateStats(groups, students, tasks, filteredEvaluations);
+            const stats = _calculateStats(groups, students, filteredTasks, latestTaskEvals);
             summary = stats.latestAssignmentSummary;
             
+            // Determine Display Subject for Latest Task
+            let displaySubject = '';
+            if (targetTask.subjectId) {
+                const subjects = stateManager.get('subjects') || [];
+                const subject = subjects.find(s => s.id === targetTask.subjectId);
+                displaySubject = subject?.name || '';
+            }
+
             // Re-render dynamic sections with filtered stats
             _renderTopGroups(stats.groupPerformanceData);
             _renderAcademicGroups(stats.academicGroupStats);
-            _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta);
+            _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta, displaySubject);
 
             // Update Label for Latest Task
             if (elements.latestAssignmentAverageLabelText) {
@@ -1209,18 +1334,49 @@ function _updateDashboardForTask(taskId) {
     }
   } else {
     // Filter for specific task
-    targetTask = tasks.find(t => String(t.id) === String(taskId));
+    targetTask = filteredTasks.find(t => String(t.id) === String(taskId));
     if (targetTask) {
        filteredEvaluations = evaluations.filter(e => String(e.taskId) === String(targetTask.id));
        
-       // Calculate stats based ONLY on this task's evaluations
+       // --- NEW: Contextual Filtering based on Task ---
+       // Filter students and groups to match the task's Class and Section
+       if (targetTask.classId) {
+           students = students.filter(s => s.classId === targetTask.classId);
+           groups = groups.filter(g => g.classId === targetTask.classId);
+       }
+       if (targetTask.sectionId) {
+           students = students.filter(s => s.sectionId === targetTask.sectionId);
+           groups = groups.filter(g => g.sectionId === targetTask.sectionId);
+       }
+       
+       console.log('🎯 Task Context Applied:', {
+           task: targetTask.name,
+           classId: targetTask.classId,
+           sectionId: targetTask.sectionId,
+           filteredStudents: students.length,
+           filteredGroups: groups.length
+       });
+       // -----------------------------------------------
+
+       // Calculate stats based ONLY on this task's evaluations AND context-filtered entities
        const stats = _calculateStats(groups, students, tasks, filteredEvaluations);
        summary = stats.latestAssignmentSummary; // This will effectively be the summary for the target task
+
+       // Determine Display Subject for Specific Task
+       let displaySubject = '';
+       if (targetTask.subjectId) {
+           const subjects = stateManager.get('subjects') || [];
+           const subject = subjects.find(s => s.id === targetTask.subjectId);
+           displaySubject = subject?.name || '';
+       }
 
        // Re-render dynamic sections with filtered stats
        _renderTopGroups(stats.groupPerformanceData);
        _renderAcademicGroups(stats.academicGroupStats);
-       _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta);
+       _renderGroupsRanking(stats.groupPerformanceData, stats.groupRankingMeta, displaySubject);
+
+       // Render Stats (Updates counts, progress bar, and Latest Assignment Average circle/text)
+       _renderStats(stats);
 
        // Update Label for Specific Task
        if (elements.latestAssignmentAverageLabelText) {
@@ -1231,34 +1387,6 @@ function _updateDashboardForTask(taskId) {
 
   if (!targetTask) return;
 
-  // Fallback summary if calculation returns null (e.g. no timestamp or no evaluations)
-  if (!summary) {
-      // Count how many groups have evaluations for this specific task
-      const evaluatedGroupIdsForTask = new Set();
-      filteredEvaluations.forEach(e => {
-          if (e.groupId) evaluatedGroupIdsForTask.add(e.groupId);
-      });
-      
-      // Count evaluated students for this task
-      let evaluatedStudentCount = 0;
-      filteredEvaluations.forEach(e => {
-          if (e.scores) evaluatedStudentCount += Object.keys(e.scores).length;
-      });
-      
-      summary = {
-          taskId: targetTask.id,
-          taskTitle: targetTask.name,
-          evaluated: evaluatedStudentCount,
-          total: students.length,
-          groupsEvaluated: evaluatedGroupIdsForTask.size,
-          groupTotal: groups.length,
-      };
-  }
-
-  // Update UI Elements
-  if (elements.latestTaskTitle) elements.latestTaskTitle.textContent = targetTask.name;
-  if (elements.latestTaskTitle) elements.latestTaskTitle.title = targetTask.name;
-  
   // Update Status Title
   if (elements.assignmentStatusTitle) {
       if (taskId === 'latest') {
@@ -1277,71 +1405,48 @@ function _updateDashboardForTask(taskId) {
       }
   }
 
+  // Override Latest Assignment Date with Badges (Compact)
   if (elements.latestAssignmentUpdated) {
     const ts = _getTaskScheduleTimestamp(targetTask);
-    elements.latestAssignmentUpdated.textContent = _formatDateTime(ts);
+    const dateStr = _formatDateTime(ts);
+    
+    // Get names for badges
+    const classes = stateManager.get('classes') || [];
+    const sections = stateManager.get('sections') || [];
+    const subjects = stateManager.get('subjects') || [];
+    
+    const className = targetTask.classId ? (classes.find(c => c.id === targetTask.classId)?.name || '') : '';
+    const sectionName = targetTask.sectionId ? (sections.find(s => s.id === targetTask.sectionId)?.name || '') : '';
+    const subjectName = targetTask.subjectId ? (subjects.find(s => s.id === targetTask.subjectId)?.name || '') : '';
+
+    // Build badges HTML (Compact)
+    let badgesHtml = '';
+    if (className || sectionName || subjectName) {
+        badgesHtml = `<span class="inline-flex items-center gap-1 ml-2 align-middle">`;
+        if (className) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-medium border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">${className}</span>`;
+        if (sectionName) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-medium border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">${sectionName}</span>`;
+        if (subjectName) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium border border-indigo-100 dark:border-indigo-800">${subjectName}</span>`;
+        badgesHtml += `</span>`;
+    }
+
+    elements.latestAssignmentUpdated.innerHTML = `${dateStr}${badgesHtml}`;
   }
 
-  // Update Progress Bar
-  // Switch to Student-based progress as it's more reliable (Group stats might be 0 if groupId is missing)
-  const totalEvaluationsNeeded = summary.total !== undefined ? summary.total : (summary.totalStudentCount || students.length);
-  const evaluatedCount = summary.evaluated !== undefined ? summary.evaluated : (summary.evaluatedStudentCount || 0);
-  
-  const progressPercent = totalEvaluationsNeeded > 0 ? Math.round((evaluatedCount / totalEvaluationsNeeded) * 100) : 0;
-  
-  console.log('📊 Progress Update (Student-based):', { 
-      task: targetTask.name, 
-      evaluated: evaluatedCount, 
-      total: totalEvaluationsNeeded, 
-      percent: progressPercent 
-  });
-
-  if (elements.progressBar) {
-      // Force a reflow before setting width
-      void elements.progressBar.offsetHeight;
-      
-      // Use setTimeout to ensure DOM is ready and transition triggers
-      setTimeout(() => {
-          elements.progressBar.style.setProperty('width', `${progressPercent}%`, 'important');
-      }, 50);
-  }
-  if (elements.progressBarLabel) {
-      elements.progressBarLabel.textContent = `${helpers.convertToBanglaNumber(progressPercent)}%`;
-  }
-
-  // Update Student Stats
-  // FIX: Use 'evaluated' and 'total' keys as returned by _calculateLatestAssignmentSummary
-  const evaluatedStudentCount = summary.evaluated !== undefined ? summary.evaluated : (summary.evaluatedStudentCount || 0);
-  const totalStudentCount = summary.total !== undefined ? summary.total : (summary.totalStudentCount || 0);
-  
-  if (elements.latestAssignmentEvaluated) elements.latestAssignmentEvaluated.textContent = helpers.convertToBanglaNumber(evaluatedStudentCount);
-  if (elements.latestAssignmentPending) elements.latestAssignmentPending.textContent = helpers.convertToBanglaNumber(totalStudentCount - evaluatedStudentCount);
-  if (elements.latestAssignmentStudentTotal) elements.latestAssignmentStudentTotal.textContent = helpers.convertToBanglaNumber(totalStudentCount);
-
-  // Update Group Stats
-  // FIX: Use 'groupsEvaluated' and 'groupTotal' keys as returned by _calculateLatestAssignmentSummary
-  const evaluatedGroupCount = summary.groupsEvaluated !== undefined ? summary.groupsEvaluated : (summary.evaluatedGroupCount || 0);
-  const totalGroupCount = summary.groupTotal !== undefined ? summary.groupTotal : groups.length; 
-  
-  if (elements.latestAssignmentGroupEvaluated) elements.latestAssignmentGroupEvaluated.textContent = helpers.convertToBanglaNumber(evaluatedGroupCount);
-  if (elements.latestAssignmentGroupPending) elements.latestAssignmentGroupPending.textContent = helpers.convertToBanglaNumber(totalGroupCount - evaluatedGroupCount);
-  if (elements.latestAssignmentGroupTotal) elements.latestAssignmentGroupTotal.textContent = helpers.convertToBanglaNumber(totalGroupCount);
-
-  // Update Average & Overall
-  // Note: For specific assignment, "Overall Progress" might just be that assignment's average or kept as global. 
-  // The user request implies seeing data for *that* assignment.
-  // Let's calculate the average for this specific assignment.
-  
-  const assignmentAverageStats = _calculateAssignmentAverageStats([targetTask], filteredEvaluations);
-  const avg = assignmentAverageStats.assignmentAverageMap.get(String(targetTask.id)) || 0;
-  
-  if (elements.latestAssignmentAverage) elements.latestAssignmentAverage.textContent = helpers.convertToBanglaNumber(avg.toFixed(1));
-  
+  // Override Overall Progress with Global Average (if desired to keep it global)
   // Calculate Global Average for "Overall Progress" (Always Global)
   const globalStatsForOverall = _calculateAssignmentAverageStats(tasks, evaluations);
   const globalAverage = globalStatsForOverall.overallAverage || 0;
 
   if (elements.overallProgress) elements.overallProgress.textContent = helpers.convertToBanglaNumber(globalAverage.toFixed(1));
+  // Note: We might also want to update the Overall Progress Circle to match the global average
+  // But _renderStats updated it to the task average. 
+  // If we want Global, we should update the circle too.
+  if (elements.overallProgressCircle) {
+    const progressDeg = (globalAverage / 100) * 360;
+    const skySolid = '#0ea5e9'; 
+    const skySoft = 'rgba(14,165,233,0.1)';
+    elements.overallProgressCircle.style.background = `conic-gradient(${skySolid} ${progressDeg}deg, ${skySoft} ${progressDeg}deg)`;
+  }
 
 }
 
@@ -1446,88 +1551,118 @@ function _normalizeGender(value) {
 
 function _calculateGroupPerformance(groups, students, evaluations, tasks) {
   const taskMap = new Map(tasks.map((task) => [task.id, task]));
+  const studentToGroup = new Map(students.map((s) => [s.id, s.groupId]));
 
-  return groups
-    .map((group) => {
-      const groupStudents = students.filter((s) => s.groupId === group.id);
-      const groupEvals = evaluations.filter((e) => e.groupId === group.id);
+  // Initialize group stats
+  const groupStats = {};
+  groups.forEach(g => {
+    groupStats[g.id] = {
+      group: g,
+      groupName: g.name,
+      studentCount: 0,
+      totalScoreSum: 0,
+      totalMaxScoreSum: 0,
+      validEvalsCount: 0,
+      evaluatedMemberIds: new Set(),
+      taskIds: new Set(),
+      latestEvalMeta: { ts: 0, avgPct: null, participants: null, participationRate: null }
+    };
+  });
+
+  // Count students per group
+  students.forEach(s => {
+    if (s.groupId && groupStats[s.groupId]) {
+      groupStats[s.groupId].studentCount++;
+    }
+  });
+
+  // Iterate evaluations and attribute to groups via students
+  evaluations.forEach((evaluation) => {
+    if (!evaluation.scores) return;
+
+    const taskId = evaluation.taskId;
+    const task = taskMap.get(taskId);
+    const maxScorePerStudent = parseFloat(task?.maxScore) || parseFloat(evaluation.maxPossibleScore) || 100;
+    
+    const evalTs = _normalizeTimestamp(evaluation.taskDate) ||
+                   _normalizeTimestamp(evaluation.updatedAt) ||
+                   _normalizeTimestamp(evaluation.createdAt);
+
+    // We need to aggregate per group for THIS evaluation to calculate participation/latest stats correctly
+    const evalGroupAgg = {}; 
+
+    Object.entries(evaluation.scores).forEach(([studentId, scoreData]) => {
+      const groupId = studentToGroup.get(studentId);
+      if (!groupId || !groupStats[groupId]) return;
+
+      if (!evalGroupAgg[groupId]) {
+        evalGroupAgg[groupId] = {
+          totalScore: 0,
+          studentCount: 0,
+          studentIds: new Set()
+        };
+      }
+
+      const score = parseFloat(scoreData.totalScore) || 0;
+      evalGroupAgg[groupId].totalScore += score;
+      evalGroupAgg[groupId].studentCount++;
+      evalGroupAgg[groupId].studentIds.add(studentId);
+
+      // Global Group Stats Update
+      groupStats[groupId].totalScoreSum += score;
+      groupStats[groupId].totalMaxScoreSum += maxScorePerStudent; // Add max score for this student entry
+      groupStats[groupId].evaluatedMemberIds.add(studentId);
+      groupStats[groupId].taskIds.add(taskId);
+    });
+
+    // Update "Per Evaluation" stats (like latest eval meta) for each group involved
+    Object.entries(evalGroupAgg).forEach(([groupId, agg]) => {
+      const stats = groupStats[groupId];
       
-      let totalScoreSum = 0;
-      let totalMaxScoreSum = 0;
-      let validEvalsCount = 0;
-      
-      const evaluatedMemberIds = new Set();
-      const taskIds = new Set();
-      let latestEvalMeta = { ts: 0, avgPct: null, participants: null, participationRate: null };
-      
-      groupEvals.forEach((evaluation) => {
-        const participantCount = evaluation?.scores ? Object.keys(evaluation.scores).length : 0;
+      // Increment valid evals count for the group (count each unique evaluation that had members from this group)
+      stats.validEvalsCount++;
+
+      // Check if this is the latest evaluation for this group
+      if (evalTs >= stats.latestEvalMeta.ts) {
+        const groupStudentCount = stats.studentCount || 1; // avoid div by 0
+        const partRate = Math.min(100, (agg.studentCount / groupStudentCount) * 100);
         
-        // Calculate total score and max score for this evaluation
-        let evalTotalScore = 0;
-        let evalStudentCount = 0;
-        if (evaluation?.scores) {
-           Object.values(evaluation.scores).forEach(scoreData => {
-               evalTotalScore += parseFloat(scoreData.totalScore) || 0;
-               evalStudentCount++;
-           });
-        }
-        
-        const task = taskMap.get(evaluation.taskId);
-        const maxScorePerStudent = parseFloat(task?.maxScore) || parseFloat(evaluation.maxPossibleScore) || 100;
-        const evalMaxScore = maxScorePerStudent * evalStudentCount;
+        // Calculate average percent for this specific evaluation for this group
+        const evalMaxTotal = maxScorePerStudent * agg.studentCount;
+        const avgPct = evalMaxTotal > 0 ? (agg.totalScore / evalMaxTotal) * 100 : 0;
 
-        if (evalStudentCount > 0 && maxScorePerStudent > 0) {
-            totalScoreSum += evalTotalScore;
-            totalMaxScoreSum += evalMaxScore;
-            validEvalsCount++;
-        }
+        stats.latestEvalMeta = {
+          ts: evalTs,
+          avgPct: avgPct,
+          participants: agg.studentCount,
+          participationRate: partRate,
+        };
+      }
+    });
+  });
 
-        // Calculate Average Percent for Latest Eval Meta (keep as is for display if needed, or update)
-        const evalAvgPct = _getEvaluationAveragePercent(evaluation, taskMap);
-
-        if (evaluation?.scores) {
-          Object.keys(evaluation.scores).forEach((studentId) => {
-            if (studentId) evaluatedMemberIds.add(studentId);
-          });
-        }
-        if (evaluation?.taskId) taskIds.add(evaluation.taskId);
-
-        const evalTs =
-          _normalizeTimestamp(evaluation.taskDate) ||
-          _normalizeTimestamp(evaluation.updatedAt) ||
-          _normalizeTimestamp(evaluation.createdAt);
-        if (evalTs && evalTs >= (latestEvalMeta.ts || 0)) {
-          const partRate =
-            groupStudents.length > 0 ? Math.min(100, (participantCount / groupStudents.length) * 100) : 0;
-          latestEvalMeta = {
-            ts: evalTs,
-            avgPct: typeof evalAvgPct === 'number' ? evalAvgPct : latestEvalMeta.avgPct,
-            participants: participantCount,
-            participationRate: partRate,
-          };
-        }
-      });
-
+  return Object.values(groupStats)
+    .map((stats) => {
       // Weighted Average Calculation
-      const averageScore = totalMaxScoreSum > 0 ? (totalScoreSum / totalMaxScoreSum) * 100 : 0;
+      const averageScore = stats.totalMaxScoreSum > 0 ? (stats.totalScoreSum / stats.totalMaxScoreSum) * 100 : 0;
       
-      const evaluatedMembers = evaluatedMemberIds.size;
-      const taskCount = taskIds.size;
+      const evaluatedMembers = stats.evaluatedMemberIds.size;
+      const taskCount = stats.taskIds.size;
       const participationRate =
-        groupStudents.length > 0 ? Math.min(100, (evaluatedMembers / groupStudents.length) * 100) : 0;
+        stats.studentCount > 0 ? Math.min(100, (evaluatedMembers / stats.studentCount) * 100) : 0;
+
       return {
-        group,
-        groupName: group.name,
-        studentCount: groupStudents.length,
+        group: stats.group,
+        groupName: stats.groupName,
+        studentCount: stats.studentCount,
         averageScore: averageScore,
-        evalCount: validEvalsCount,
+        evalCount: stats.validEvalsCount,
         evaluatedMembers,
         taskCount,
         participationRate,
-        latestAverageScore: latestEvalMeta.avgPct,
-        latestParticipantCount: latestEvalMeta.participants,
-        latestParticipationRate: latestEvalMeta.participationRate,
+        latestAverageScore: stats.latestEvalMeta.avgPct,
+        latestParticipantCount: stats.latestEvalMeta.participants,
+        latestParticipationRate: stats.latestEvalMeta.participationRate,
       };
     })
     .sort((a, b) => b.averageScore - a.averageScore);
@@ -1934,6 +2069,96 @@ function _calculateAcademicGroupStats(students, groupPerformanceData) {
     data.averageScore = data.groupCount > 0 ? data.scoreSum / data.groupCount : 0;
   });
   return stats;
+}
+
+/**
+ * Helper to filter data for teachers based on their assignments.
+ * Uses robust name-based matching in addition to IDs.
+ */
+function _getFilteredDataForTeacher(state, teacher) {
+  if (!teacher) return state;
+
+  const { tasks, subjects, evaluations, students, groups, sections, classes } = state;
+  const assignedSubjects = teacher.assignedSubjects || [];
+  const assignedClasses = teacher.assignedClasses || [];
+  const assignedSections = teacher.assignedSections || [];
+
+  // Pre-calculate name sets for robust matching
+  const assignedSubjectNames = new Set(
+      subjects.filter(s => assignedSubjects.some(id => String(id) === String(s.id))).map(s => s.name?.trim())
+  );
+  const assignedClassNames = new Set(
+      classes.filter(c => assignedClasses.some(id => String(id) === String(c.id))).map(c => c.name?.trim())
+  );
+  const assignedSectionNames = new Set(
+      sections.filter(s => assignedSections.some(id => String(id) === String(s.id))).map(s => s.name?.trim())
+  );
+
+  // 1. Filter Tasks: Match ID or Name
+  const filteredTasks = tasks.filter(t => {
+      if (!t.subjectId) return false;
+      
+      // Robust ID Check
+      if (assignedSubjects.some(id => String(id) === String(t.subjectId))) return true;
+      
+      const sub = subjects.find(s => String(s.id) === String(t.subjectId));
+      if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
+      
+      return false;
+  });
+
+  // 2. Filter Evaluations based on filtered tasks
+  const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+  const filteredEvaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
+
+  // 3. Filter Students
+  const filteredStudents = students.filter(s => {
+      // Class Match
+      const studentClass = classes.find(c => String(c.id) === String(s.classId));
+      const studentClassName = studentClass?.name?.trim();
+      const isClassMatch = assignedClasses.some(id => String(id) === String(s.classId)) || 
+                           (studentClassName && assignedClassNames.has(studentClassName));
+      
+      if (!isClassMatch) return false;
+      
+      // Section Match
+      if (s.sectionId) {
+          const studentSection = sections.find(sec => String(sec.id) === String(s.sectionId));
+          const studentSectionName = studentSection?.name?.trim();
+          const isSectionMatch = assignedSections.some(id => String(id) === String(s.sectionId)) ||
+                                 (studentSectionName && assignedSectionNames.has(studentSectionName));
+          return isSectionMatch;
+      }
+      return true;
+  });
+
+  // 4. Filter Groups
+  const filteredGroups = groups.filter(g => {
+      if (!g.classId) return false;
+      
+      const groupClass = classes.find(c => String(c.id) === String(g.classId));
+      const groupClassName = groupClass?.name?.trim();
+      const isClassMatch = assignedClasses.some(id => String(id) === String(g.classId)) || 
+                           (groupClassName && assignedClassNames.has(groupClassName));
+      
+      if (!isClassMatch) return false;
+      
+      if (g.sectionId) {
+          const groupSection = sections.find(s => String(s.id) === String(g.sectionId));
+          const groupSectionName = groupSection?.name?.trim();
+          const isSectionMatch = assignedSections.some(id => String(id) === String(g.sectionId)) ||
+                                 (groupSectionName && assignedSectionNames.has(groupSectionName));
+          return isSectionMatch;
+      }
+      return true;
+  });
+
+  return {
+      tasks: filteredTasks,
+      evaluations: filteredEvaluations,
+      students: filteredStudents,
+      groups: filteredGroups
+  };
 }
 
 // --- DOM Rendering Functions ---
@@ -2383,7 +2608,7 @@ function _renderAcademicGroups(academicStats) {
 }
 
 /** NEW: Build a single Rank Card (glass + gradient + medal) */
-function _buildRankCard(data, rank) {
+function _buildRankCard(data, rank, subjectName = '') {
   const palette = _getScorePalette(data.averageScore);
   const rankText = helpers.convertToBanglaRank(rank);
   const groupName = _formatLabel(data.groupName);
@@ -2409,6 +2634,16 @@ function _buildRankCard(data, rank) {
   const summaryLine = `মোট সদস্য: ${members} · মূল্যায়িত: ${evaluated} `;
   const groupId = data.group?.id || '';
 
+  // Subject Badge HTML
+  let subjectBadge = '';
+  if (subjectName) {
+      subjectBadge = `
+        <span class="inline-flex items-center justify-center rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800 ml-2">
+          ${subjectName}
+        </span>
+      `;
+  }
+
   return `
   <article class="relative flex items-center justify-between gap-4 rounded-2xl border border-transparent
                   bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg
@@ -2422,8 +2657,9 @@ function _buildRankCard(data, rank) {
         <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">গ্রুপ র‍্যাঙ্ক</div>
       </div>
       <div class="min-w-0 space-y-2">
-        <h4 class="truncate text-base font-semibold text-slate-900 dark:text-white" title="${groupName}">
+        <h4 class="truncate text-base font-semibold text-slate-900 dark:text-white flex items-center" title="${groupName}">
           ${groupName}
+          ${subjectBadge}
         </h4>
         <div class="grid grid-cols-2 gap-2 text-[12px] font-semibold">
           <span class="inline-flex items-center justify-center rounded-lg bg-slate-100 px-2 py-1 text-slate-700
@@ -2449,7 +2685,7 @@ function _buildRankCard(data, rank) {
 }
 
 /** UPDATED: Renders group ranking list using new Rank Card */
-function _renderGroupsRanking(groupData, rankingMeta = null) {
+function _renderGroupsRanking(groupData, rankingMeta = null, subjectName = '') {
   if (!elements.groupsRankingList) return;
   uiManager.clearContainer(elements.groupsRankingList);
 
@@ -2469,7 +2705,7 @@ function _renderGroupsRanking(groupData, rankingMeta = null) {
   const cards = sortedGroups
     .map((data, index) => {
       const rank = index + 1;
-      return _buildRankCard(data, rank);
+      return _buildRankCard(data, rank, subjectName);
     })
     .join('');
 
@@ -2593,26 +2829,20 @@ function _setupDashboardFilters() {
     
     console.log('👤 User type:', user?.type, 'isAdmin:', isAdmin, 'isTeacher:', isTeacher);
 
-    // === TEACHER: Show info card ONLY, hide filter dropdowns ===
-    if (isTeacher) {
+    // === TEACHER & ADMIN: Show filter dropdowns ===
+    if (isTeacher || isAdmin) {
         if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden');
-        
-        // Hide the filter dropdowns for teachers
-        if (filtersWrapper) filtersWrapper.classList.add('hidden');
+        if (filtersWrapper) filtersWrapper.classList.remove('hidden'); // Show filter dropdowns
 
-        // Display Teacher Info Card
-        if (teacherInfoCard && teacherNameDisplay && teacherAssignmentDisplay) {
-            teacherInfoCard.classList.remove('hidden');
+        // Teacher Info Card logic
+        if (isTeacher) {
+            if (teacherInfoCard) teacherInfoCard.classList.remove('hidden');
+            if (teacherNameDisplay) teacherNameDisplay.textContent = currentTeacher?.name || user.email?.split('@')[0] || 'শিক্ষক';
             
-            // Teacher Name
-            const teacherName = currentTeacher?.name || user.email?.split('@')[0] || 'শিক্ষক';
-            teacherNameDisplay.textContent = teacherName;
-            
-            // Get assigned data from currentTeacher (NOT from user which doesn't have assignments)
+            // Build assignment summary for display
             const assignedClasses = currentTeacher?.assignedClasses || [];
             const assignedSections = currentTeacher?.assignedSections || [];
             const assignedSubjects = currentTeacher?.assignedSubjects || [];
-            
             const allClasses = stateManager.get('classes') || [];
             const allSections = stateManager.get('sections') || [];
             const allSubjects = stateManager.get('subjects') || [];
@@ -2621,39 +2851,49 @@ function _setupDashboardFilters() {
             const availableSections = allSections.filter(s => assignedSections.includes(s.id));
             const availableSubjects = allSubjects.filter(s => assignedSubjects.includes(s.id));
 
-            // Build assignment summary
             const classNames = availableClasses.map(c => c.name).join(', ') || 'N/A';
             const sectionNames = availableSections.map(s => s.name).join(', ') || 'N/A';
             const subjectNames = availableSubjects.map(s => s.name).join(', ') || 'N/A';
             
-            teacherAssignmentDisplay.innerHTML = `
-                <span class="text-indigo-600 dark:text-indigo-400">ক্লাস:</span> ${classNames} 
-                <span class="mx-1 text-indigo-400">|</span>
-                <span class="text-indigo-600 dark:text-indigo-400">শাখা:</span> ${sectionNames}
-                <span class="mx-1 text-indigo-400">|</span>
-                <span class="text-indigo-600 dark:text-indigo-400">বিষয়:</span> ${subjectNames}
-            `;
+            if (teacherAssignmentDisplay) {
+                teacherAssignmentDisplay.innerHTML = `
+                    <span class="text-indigo-600 dark:text-indigo-400">ক্লাস:</span> ${classNames} 
+                    <span class="mx-1 text-indigo-400">|</span>
+                    <span class="text-indigo-600 dark:text-indigo-400">শাখা:</span> ${sectionNames}
+                    <span class="mx-1 text-indigo-400">|</span>
+                    <span class="text-indigo-600 dark:text-indigo-400">বিষয়:</span> ${subjectNames}
+                `;
+            }
+        } else {
+            if (teacherInfoCard) teacherInfoCard.classList.add('hidden');
         }
-        return; // Teacher setup done - no filters
-    }
-
-    // === ADMIN: Show filter dropdowns, hide teacher info ===
-    if (isAdmin) {
-        if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden');
-        if (teacherInfoCard) teacherInfoCard.classList.add('hidden'); // Hide teacher-specific card
-        if (filtersWrapper) filtersWrapper.classList.remove('hidden'); // Show filter dropdowns
 
         if (!classSelect || !sectionSelect || !subjectSelect) return;
 
-        // Populate with ALL options for admin (remove duplicates by name)
+        // --- POPULATE FILTERS ---
         const allClasses = stateManager.get('classes') || [];
         const allSections = stateManager.get('sections') || [];
         const allSubjects = stateManager.get('subjects') || [];
-        
-        // Remove duplicates by name (not ID) - if multiple entries have same name, keep first one
-        const uniqueClasses = Array.from(new Map(allClasses.map(c => [c.name, c])).values());
-        const uniqueSections = Array.from(new Map(allSections.map(s => [s.name, s])).values());
-        const uniqueSubjects = Array.from(new Map(allSubjects.map(s => [s.name, s])).values());
+
+        let targetClasses = allClasses;
+        let targetSections = allSections;
+        let targetSubjects = allSubjects;
+
+        if (isTeacher) {
+            // Filter options for teachers
+            const assignedClasses = currentTeacher?.assignedClasses || [];
+            const assignedSections = currentTeacher?.assignedSections || [];
+            const assignedSubjects = currentTeacher?.assignedSubjects || [];
+            
+            targetClasses = allClasses.filter(c => assignedClasses.includes(c.id));
+            targetSections = allSections.filter(s => assignedSections.includes(s.id));
+            targetSubjects = allSubjects.filter(s => assignedSubjects.includes(s.id));
+        }
+
+        // Remove duplicates by name
+        const uniqueClasses = Array.from(new Map(targetClasses.map(c => [c.name, c])).values());
+        const uniqueSections = Array.from(new Map(targetSections.map(s => [s.name, s])).values());
+        const uniqueSubjects = Array.from(new Map(targetSubjects.map(s => [s.name, s])).values());
 
         uiManager.populateSelect(classSelect, uniqueClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
         uiManager.populateSelect(sectionSelect, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
@@ -2684,4 +2924,6 @@ function _setupDashboardFilters() {
     // === PUBLIC USERS: Hide everything ===
     if (teacherInfoContainer) teacherInfoContainer.classList.add('hidden');
 }
+
+
 
