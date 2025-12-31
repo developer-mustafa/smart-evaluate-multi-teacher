@@ -570,8 +570,8 @@ export function render() {
   const user = stateManager.get('currentUserData');
 
   if (user && user.type === 'teacher') {
-      tasks = stateManager.getFilteredData('tasks');
-      evaluations = stateManager.getFilteredData('evaluations');
+      tasks = stateManager.getFilteredData('tasks', true);
+      evaluations = stateManager.getFilteredData('evaluations', true);
   } else {
       tasks = stateManager.get('tasks') || [];
       evaluations = stateManager.get('evaluations') || [];

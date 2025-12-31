@@ -254,7 +254,7 @@ function _populateSelectors() {
         const assignedSections = teacher?.assignedSections || [];
         const assignedSubjects = teacher?.assignedSubjects || [];
         
-        // Loose Matching Helpers
+        // Strict Matching Helpers
         const assignedSectionNames = new Set(
             sections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
         );
@@ -276,6 +276,24 @@ function _populateSelectors() {
                 assignedSubjects.includes(s.id) || 
                 (s.name && assignedSubjectNames.has(s.name.trim()))
             );
+            
+            // Smart Deduplication for Subjects (Prioritize Assigned IDs)
+            const uniqueSubjectsMap = new Map();
+            availableSubjects.forEach(s => {
+                const name = s.name?.trim();
+                if (!name) return;
+                
+                if (uniqueSubjectsMap.has(name)) {
+                    const existing = uniqueSubjectsMap.get(name);
+                    // If existing is NOT assigned, but new one IS, replace it
+                    if (!assignedSubjects.includes(existing.id) && assignedSubjects.includes(s.id)) {
+                        uniqueSubjectsMap.set(name, s);
+                    }
+                } else {
+                    uniqueSubjectsMap.set(name, s);
+                }
+            });
+            availableSubjects = Array.from(uniqueSubjectsMap.values());
         }
     }
 
@@ -350,10 +368,29 @@ function _updateDependentDropdowns(classId) {
     }
 
     // 3. Final Deduplication (by Name) to ensure clean dropdowns
-    // Now that we have filtered by Class and Teacher, we can remove duplicate names 
-    // (e.g. if multiple "Section A" IDs passed the filters for this class)
-    filteredSections = Array.from(new Map(filteredSections.map(s => [s.name?.trim(), s])).values());
-    filteredSubjects = Array.from(new Map(filteredSubjects.map(s => [s.name?.trim(), s])).values());
+    // Prioritize assigned IDs when deduplicating
+    const assignedSubjects = (user && user.type === 'teacher') ? (stateManager.get('currentTeacher')?.assignedSubjects || []) : [];
+    
+    const uniqueSectionsMap = new Map();
+    filteredSections.forEach(s => uniqueSectionsMap.set(s.name?.trim(), s)); // Sections usually don't have this issue, simple dedupe is fine
+    filteredSections = Array.from(uniqueSectionsMap.values());
+
+    const uniqueSubjectsMap = new Map();
+    filteredSubjects.forEach(s => {
+        const name = s.name?.trim();
+        if (!name) return;
+        
+        if (uniqueSubjectsMap.has(name)) {
+            const existing = uniqueSubjectsMap.get(name);
+            // If existing is NOT assigned, but new one IS, replace it
+            if (assignedSubjects.length > 0 && !assignedSubjects.includes(existing.id) && assignedSubjects.includes(s.id)) {
+                uniqueSubjectsMap.set(name, s);
+            }
+        } else {
+            uniqueSubjectsMap.set(name, s);
+        }
+    });
+    filteredSubjects = Array.from(uniqueSubjectsMap.values());
 
     _populateDependentDropdowns(filteredSections, filteredSubjects);
 }

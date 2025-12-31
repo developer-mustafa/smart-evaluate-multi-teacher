@@ -41,6 +41,71 @@ const ROLE_BADGE_META = {
   },
 };
 
+// Subject color palette for unique subject badges (Safe Colors & High Contrast)
+const SUBJECT_COLORS = [
+  'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-white dark:border-red-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-white dark:border-yellow-700',
+  'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-white dark:border-green-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-white dark:border-gray-600',
+];
+
+// Class color palette for unique class badges (Safe Colors & High Contrast)
+const CLASS_COLORS = [
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900 dark:text-white dark:border-violet-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-900 dark:text-white dark:border-fuchsia-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900 dark:text-white dark:border-rose-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-white dark:border-amber-700',
+  'bg-lime-100 text-lime-800 border-lime-200 dark:bg-lime-900 dark:text-white dark:border-lime-700',
+  'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-white dark:border-emerald-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-900 dark:text-white dark:border-cyan-700',
+  'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-white dark:border-sky-700',
+];
+
+// Get consistent color for a subject based on its name
+function _getSubjectColor(subjectName) {
+  if (!subjectName) return SUBJECT_COLORS[0];
+
+  // Predefined colors for common subjects to ensure distinctness
+  const lowerName = subjectName.trim().toLowerCase();
+  if (lowerName.includes('বাংলা') || lowerName.includes('bangla')) return SUBJECT_COLORS[0]; // Red/Rose
+  if (lowerName.includes('ইংরেজি') || lowerName.includes('english')) return SUBJECT_COLORS[5]; // Blue
+  if (lowerName.includes('গণিত') || lowerName.includes('math')) return SUBJECT_COLORS[1]; // Orange
+  if (lowerName.includes('আইসিটি') || lowerName.includes('ict') || lowerName.includes('তথ্য')) return SUBJECT_COLORS[4]; // Teal
+  if (lowerName.includes('বিজ্ঞান') || lowerName.includes('science')) return SUBJECT_COLORS[3]; // Green
+  if (lowerName.includes('ধর্ম') || lowerName.includes('religion') || lowerName.includes('ইসলাম')) return SUBJECT_COLORS[7]; // Purple
+  if (lowerName.includes('পদার্থ') || lowerName.includes('physics')) return SUBJECT_COLORS[8]; // Indigo
+  if (lowerName.includes('রসায়ন') || lowerName.includes('chemistry')) return SUBJECT_COLORS[2]; // Yellow/Amber
+  if (lowerName.includes('জীব') || lowerName.includes('biology')) return SUBJECT_COLORS[6]; // Pink/Fuchsia
+
+  let hash = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
+}
+
+// Get consistent color for a class based on its name
+function _getClassColor(className) {
+  if (!className) return CLASS_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < className.length; i++) {
+    hash = className.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
+}
+
 // Additional Criteria Definitions
 const additionalCriteria = {
   topic: [
@@ -193,16 +258,33 @@ function _populateSelectors() {
   let availableSections = sections;
   let availableSubjects = subjects;
 
-  // Teacher Restriction Logic
+  // Teacher Restriction Logic - Strict & Robust
   if (user && user.type === 'teacher') {
       const teacher = stateManager.get('currentTeacher');
       const assignedClasses = teacher?.assignedClasses || [];
       const assignedSections = teacher?.assignedSections || [];
       const assignedSubjects = teacher?.assignedSubjects || [];
       
+      const assignedSectionNames = new Set(
+          sections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+      );
+      const assignedSubjectNames = new Set(
+          subjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+      );
+      
       if (assignedClasses.length > 0) availableClasses = classes.filter(c => assignedClasses.includes(c.id));
-      if (assignedSections.length > 0) availableSections = sections.filter(s => assignedSections.includes(s.id));
-      if (assignedSubjects.length > 0) availableSubjects = subjects.filter(s => assignedSubjects.includes(s.id));
+      
+      if (assignedSections.length > 0) {
+          availableSections = sections.filter(s => 
+              assignedSections.includes(s.id) || (s.name && assignedSectionNames.has(s.name.trim()))
+          );
+      }
+      
+      if (assignedSubjects.length > 0) {
+          availableSubjects = subjects.filter(s => 
+              assignedSubjects.includes(s.id) || (s.name && assignedSubjectNames.has(s.name.trim()))
+          );
+      }
   }
 
   if (elements.evaluationClassSelect) uiManager.populateSelect(elements.evaluationClassSelect, availableClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
@@ -372,7 +454,7 @@ function _filterEvaluationOptions() {
         const assignedSubjects = teacher?.assignedSubjects || [];
         const subjects = stateManager.get('subjects') || [];
         
-        // Relaxed Subject Filter: Match ID or Name
+        // Strict Subject Filter: Match ID or Name
         const assignedSubjectNames = new Set(
             subjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
         );
@@ -442,12 +524,34 @@ function _filterEvaluationOptions() {
     if (user && user.type === 'teacher') {
          const teacher = stateManager.get('currentTeacher');
          const assignedClasses = teacher?.assignedClasses || [];
+         const assignedSections = teacher?.assignedSections || [];
+         const allSections = stateManager.get('sections') || [];
          
-         // Only filter by Class access. 
-         // If teacher is assigned to Class 6, they see all Class 6 groups.
-         if(assignedClasses.length > 0) {
-             filteredGroups = filteredGroups.filter(g => assignedClasses.includes(g.classId));
-         }
+         const assignedSectionNames = new Set(
+            allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+         );
+
+         // Filter by Class AND Section (if applicable)
+         // Groups are often class-wide, but if a teacher is restricted to Section A, 
+         // they should probably only see groups that are explicitly for Section A OR Universal groups?
+         // User said: "Group gulo kintu nirdisto class er jonno universal... eki class er jekono sakha ba bishoy er shikkhok... access pabe"
+         // This implies Class-level access is enough.
+         // BUT, if I am a teacher of Class 6, Section A, and there is a group explicitly for Section B, should I see it?
+         // Probably not. 
+         
+         filteredGroups = filteredGroups.filter(g => {
+             if (assignedClasses.length > 0 && !assignedClasses.includes(g.classId)) return false;
+             
+             // If group has a sectionId, check strict section access
+             if (g.sectionId && assignedSections.length > 0) {
+                 if (assignedSections.includes(g.sectionId)) return true;
+                 const sec = allSections.find(s => s.id === g.sectionId);
+                 if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+                 return false;
+             }
+             
+             return true;
+         });
     }
 
     // Apply Dropdown Filters to Groups
@@ -1079,6 +1183,9 @@ function _renderEvaluationList() {
   const user = stateManager.get('currentUserData');
   const tasks = stateManager.get('tasks') || [];
   const groups = stateManager.get('groups') || [];
+  const classes = stateManager.get('classes') || [];
+  const allSubjects = stateManager.get('subjects') || [];
+  const allSections = stateManager.get('sections') || [];
   
   if (user && user.type === 'teacher') {
       const teacher = stateManager.get('currentTeacher');
@@ -1086,9 +1193,6 @@ function _renderEvaluationList() {
       const assignedClasses = teacher?.assignedClasses || [];
       const assignedSections = teacher?.assignedSections || [];
       
-      const allSubjects = stateManager.get('subjects') || [];
-      const allSections = stateManager.get('sections') || [];
-
       // Pre-calculate name sets for robust matching
       const assignedSubjectNames = new Set(
           allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
@@ -1164,10 +1268,28 @@ function _renderEvaluationList() {
         : 'N/A';
     const scoreColor =
       avgScorePercent !== null && !isNaN(avgScorePercent) ? helpers.getPerformanceColorClass(avgScorePercent) : '';
+
+    // Resolve Class and Subject
+    const classId = task?.classId || e.classId;
+    const subjectId = task?.subjectId; // Subject usually comes from task
+    
+    const className = classId ? (classes.find(c => c.id === classId)?.name || 'অজানা') : '-';
+    const subjectName = subjectId ? (allSubjects.find(s => s.id === subjectId)?.name || 'অজানা') : '-';
+    
+    const classColor = _getClassColor(className);
+    const subjectColor = _getSubjectColor(subjectName);
+
     const row = elements.evaluationListTableBody.insertRow();
     row.className = 'border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50';
     row.innerHTML = `
-            <td class="td p-3">${taskName}</td> <td class="td p-3">${groupName}</td> <td class="td p-3">${date}</td>
+            <td class="td p-3">
+                <div class="font-semibold text-gray-900 dark:text-white">${taskName}</div>
+                <div class="flex flex-wrap gap-1 mt-1">
+                    ${className !== '-' ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${classColor}">${className}</span>` : ''}
+                    ${subjectName !== '-' ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${subjectColor}">${subjectName}</span>` : ''}
+                </div>
+            </td> 
+            <td class="td p-3">${groupName}</td> <td class="td p-3">${date}</td>
             <td class="td p-3 text-center font-semibold ${scoreColor}">${scoreDisplay}</td>
             <td class="td p-3 text-center whitespace-nowrap">
                 <button data-id="${e.id}" class="edit-evaluation-btn btn btn-light btn-sm p-1 mx-1" aria-label="সম্পাদনা"><i class="fas fa-edit pointer-events-none"></i></button>

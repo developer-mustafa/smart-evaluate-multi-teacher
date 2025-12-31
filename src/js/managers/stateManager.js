@@ -234,7 +234,7 @@ class StateManager {
    * @param {string} collectionName - Name of the collection (groups, students, tasks, etc.)
    * @returns {Array} Filtered array
    */
-  getFilteredData(collectionName) {
+  getFilteredData(collectionName, ignoreContext = false) {
     const collection = this.state[collectionName];
     if (!Array.isArray(collection)) {
       console.warn(`getFilteredData called with invalid collection: ${collectionName}`);
@@ -260,31 +260,36 @@ class StateManager {
         // For tasks collection: strictly require subjectId
         if (collectionName === 'tasks') {
             if (!item.subjectId) return false; // Hide tasks without subject
-            if (context.subjectId && item.subjectId !== context.subjectId) return false;
-            if (!context.subjectId && assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
-            return true; // Tasks are filtered by subject only
+            
+            // 1. Context Filter (Optional)
+            if (!ignoreContext && context.subjectId && String(item.subjectId) !== String(context.subjectId)) return false;
+            
+            // 2. Assignment Filter (Always applied for teachers)
+            if (assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
+            
+            return true; 
         }
 
         // 1. Class Filter
         if (item.classId) {
-            if (context.classId && item.classId !== context.classId) return false;
-            if (!context.classId && assignedClasses.length > 0 && !assignedClasses.includes(item.classId)) return false;
+            if (!ignoreContext && context.classId && String(item.classId) !== String(context.classId)) return false;
+            if (assignedClasses.length > 0 && !assignedClasses.includes(item.classId)) return false;
         }
 
         // 2. Section Filter
         if (item.sectionId) {
-            if (context.sectionId && item.sectionId !== context.sectionId) return false;
-            if (!context.sectionId && assignedSections.length > 0 && !assignedSections.includes(item.sectionId)) return false;
+            if (!ignoreContext && context.sectionId && String(item.sectionId) !== String(context.sectionId)) return false;
+            if (assignedSections.length > 0 && !assignedSections.includes(item.sectionId)) return false;
         }
 
         // 3. Subject Filter
         if (item.subjectId) {
-            if (context.subjectId && item.subjectId !== context.subjectId) return false;
-            if (!context.subjectId && assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
+            if (!ignoreContext && context.subjectId && String(item.subjectId) !== String(context.subjectId)) return false;
+            if (assignedSubjects.length > 0 && !assignedSubjects.includes(item.subjectId)) return false;
         }
         
-        // 4. Teacher ID Filter (if applicable, though usually class/subject is enough)
-        if (item.teacherId && context.teacherId && item.teacherId !== context.teacherId) {
+        // 4. Teacher ID Filter
+        if (item.teacherId && !ignoreContext && context.teacherId && String(item.teacherId) !== String(context.teacherId)) {
           return false;
         }
         

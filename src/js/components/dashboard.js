@@ -66,6 +66,8 @@ export function render() {
       // tasks = stateManager.getFilteredData('tasks');
       // evaluations = stateManager.getFilteredData('evaluations');
       
+      console.log('📚 Teacher mode: Using strict filtered data');
+      
       const teacher = stateManager.get('currentTeacher');
       const state = {
           tasks: stateManager.get('tasks') || [],
@@ -82,8 +84,6 @@ export function render() {
       evaluations = filtered.evaluations;
       students = filtered.students;
       groups = filtered.groups;
-
-      console.log('📚 Teacher mode: Using loose filtered data');
     } else {
       // Admin/Super-admin: Apply activeContext filters if set
       const state = stateManager.getState();
@@ -356,19 +356,7 @@ function _getDashboardHTMLStructure() {
 
         </div>
          <div class="flex flex-wrap gap-2 items-center mt-2">
-             <div class="relative">
-                <select id="dashboardAssignmentFilter" 
-                  class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 
-                  text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 pl-2 pr-6 
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80">
-                  <option value="latest">সর্বশেষ এসাইনমেন্ট</option>
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500 dark:text-slate-400">
-                  <i class="fas fa-chevron-down text-[10px]"></i>
-                </div>
-            </div>
-
-            <!-- Teacher Filters (Hidden by default) -->
+            <!-- Teacher/Admin Filters (Left) -->
             <div id="teacherFiltersContainer" class="hidden flex flex-wrap gap-2 items-center">
                 <!-- Teacher Info Card -->
                 <div id="teacherInfoCard" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200/60 dark:border-indigo-700/50 shadow-sm">
@@ -390,6 +378,19 @@ function _getDashboardHTMLStructure() {
                     <select id="dashboardSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
                         <option value="">সকল বিষয়</option>
                     </select>
+                </div>
+            </div>
+
+             <!-- Assignment Filter (Right) -->
+             <div class="relative">
+                <select id="dashboardAssignmentFilter" 
+                  class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 
+                  text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 pl-2 pr-6 
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80">
+                  <option value="latest">সর্বশেষ এসাইনমেন্ট</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500 dark:text-slate-400">
+                  <i class="fas fa-chevron-down text-[10px]"></i>
                 </div>
             </div>
          </div>
@@ -1108,18 +1109,29 @@ function _updateDashboardForTask(taskId) {
 
       // 5. Apply Active Context Filters (User Selection)
       // These filters are applied ON TOP of the assignment filters
+      // 5. Apply Active Context Filters (User Selection)
+      // These filters are applied ON TOP of the assignment filters
       if (activeContext.classId) {
-          students = students.filter(s => s.classId === activeContext.classId);
-          groups = groups.filter(g => g.classId === activeContext.classId);
+          students = students.filter(s => String(s.classId) === String(activeContext.classId));
+          groups = groups.filter(g => String(g.classId) === String(activeContext.classId));
       }
 
       if (activeContext.sectionId) {
-          students = students.filter(s => s.sectionId === activeContext.sectionId);
-          groups = groups.filter(g => g.sectionId === activeContext.sectionId);
+          students = students.filter(s => String(s.sectionId) === String(activeContext.sectionId));
+          groups = groups.filter(g => String(g.sectionId) === String(activeContext.sectionId));
       }
 
       if (activeContext.subjectId) {
-          filteredTasks = filteredTasks.filter(t => t.subjectId === activeContext.subjectId);
+          // If a specific task is selected, DO NOT filter it out even if it doesn't match the subject
+          // This allows teachers to view "Math" assignments even if "ICT" is selected in the filter
+          if (taskId && taskId !== 'latest' && taskId !== 'global_rank') {
+               filteredTasks = filteredTasks.filter(t => 
+                   String(t.subjectId) === String(activeContext.subjectId) || String(t.id) === String(taskId)
+               );
+          } else {
+               filteredTasks = filteredTasks.filter(t => String(t.subjectId) === String(activeContext.subjectId));
+          }
+          
           // Re-filter evaluations based on new filtered tasks
           const newFilteredTaskIds = new Set(filteredTasks.map(t => t.id));
           filteredEvaluations = filteredEvaluations.filter(e => newFilteredTaskIds.has(e.taskId));
@@ -1373,12 +1385,13 @@ function _updateDashboardForTask(taskId) {
        // --- NEW: Contextual Filtering based on Task ---
        // Filter students and groups to match the task's Class and Section
        if (targetTask.classId) {
-           students = students.filter(s => s.classId === targetTask.classId);
-           groups = groups.filter(g => g.classId === targetTask.classId);
+           students = students.filter(s => String(s.classId) === String(targetTask.classId));
+           groups = groups.filter(g => String(g.classId) === String(targetTask.classId));
        }
        if (targetTask.sectionId) {
-           students = students.filter(s => s.sectionId === targetTask.sectionId);
-           groups = groups.filter(g => g.sectionId === targetTask.sectionId);
+           students = students.filter(s => String(s.sectionId) === String(targetTask.sectionId));
+           // Allow groups that match the section OR are universal (no sectionId)
+           groups = groups.filter(g => !g.sectionId || String(g.sectionId) === String(targetTask.sectionId));
        }
        
        console.log('🎯 Task Context Applied:', {
@@ -1391,7 +1404,9 @@ function _updateDashboardForTask(taskId) {
        // -----------------------------------------------
 
        // Calculate stats based ONLY on this task's evaluations AND context-filtered entities
-       const stats = _calculateStats(groups, students, tasks, filteredEvaluations);
+       // We pass [targetTask] to force the stats calculation to focus solely on this task
+       // This ensures _calculateLatestAssignmentSummary and other internal helpers don't pick a different "latest" task
+       const stats = _calculateStats(groups, students, [targetTask], filteredEvaluations);
        summary = stats.latestAssignmentSummary; // This will effectively be the summary for the target task
 
        // Determine Display Subject for Specific Task
@@ -2114,24 +2129,52 @@ function _getRelativeDayLabel(timestamp) {
 
 function _calculateAcademicGroupStats(students, groupPerformanceData) {
   const stats = {};
-  const groupPerfMap = new Map(groupPerformanceData.map((gp) => [gp.group.id, gp.averageScore]));
-  students.forEach((student) => {
-    const ag = student.academicGroup;
-    const groupId = student.groupId;
-    if (!ag || !groupId) return;
-    if (!stats[ag]) {
-      stats[ag] = { totalStudents: 0, scoreSum: 0, groupCount: 0, processedGroups: new Set() };
-    }
-    stats[ag].totalStudents++;
-    if (groupPerfMap.has(groupId) && !stats[ag].processedGroups.has(groupId) && groupPerfMap.get(groupId) > 0) {
-      stats[ag].scoreSum += groupPerfMap.get(groupId);
-      stats[ag].groupCount++;
-      stats[ag].processedGroups.add(groupId);
-    }
+  const studentMap = new Map(students.map(s => [String(s.id), s]));
+
+  // Iterate over groups that have performance data (and thus evaluations)
+  groupPerformanceData.forEach(groupData => {
+      const groupId = groupData.group.id;
+      const avgScore = groupData.averageScore;
+      
+      // If group has no score, it doesn't contribute to stats
+      if (avgScore <= 0) return;
+
+      // Find which Academic Groups this group belongs to based on its members
+      // (A group usually belongs to one AG, but we handle mixed cases)
+      const memberIds = groupData.evaluatedMemberIds || new Set();
+      
+      memberIds.forEach(studentId => {
+          const student = studentMap.get(String(studentId));
+          if (!student) return; // Student not in current filtered list
+
+          const ag = student.academicGroup;
+          if (!ag) return;
+
+          if (!stats[ag]) {
+              stats[ag] = { totalStudents: 0, scoreSum: 0, groupCount: 0, processedGroups: new Set(), processedStudents: new Set() };
+          }
+
+          // Count student if not already counted for this AG
+          if (!stats[ag].processedStudents.has(studentId)) {
+              stats[ag].totalStudents++;
+              stats[ag].processedStudents.add(studentId);
+          }
+
+          // Count group if not already counted for this AG
+          if (!stats[ag].processedGroups.has(groupId)) {
+              stats[ag].scoreSum += avgScore;
+              stats[ag].groupCount++;
+              stats[ag].processedGroups.add(groupId);
+          }
+      });
   });
+
   Object.keys(stats).forEach((ag) => {
     const data = stats[ag];
     data.averageScore = data.groupCount > 0 ? data.scoreSum / data.groupCount : 0;
+    // Cleanup internal sets
+    delete data.processedGroups;
+    delete data.processedStudents;
   });
   return stats;
 }
@@ -2140,91 +2183,7 @@ function _calculateAcademicGroupStats(students, groupPerformanceData) {
  * Helper to filter data for teachers based on their assignments.
  * Uses robust name-based matching in addition to IDs.
  */
-function _getFilteredDataForTeacher(state, teacher) {
-  if (!teacher) return state;
 
-  const { tasks, subjects, evaluations, students, groups, sections, classes } = state;
-  const assignedSubjects = teacher.assignedSubjects || [];
-  const assignedClasses = teacher.assignedClasses || [];
-  const assignedSections = teacher.assignedSections || [];
-
-  // Pre-calculate name sets for robust matching
-  const assignedSubjectNames = new Set(
-      subjects.filter(s => assignedSubjects.some(id => String(id) === String(s.id))).map(s => s.name?.trim())
-  );
-  const assignedClassNames = new Set(
-      classes.filter(c => assignedClasses.some(id => String(id) === String(c.id))).map(c => c.name?.trim())
-  );
-  const assignedSectionNames = new Set(
-      sections.filter(s => assignedSections.some(id => String(id) === String(s.id))).map(s => s.name?.trim())
-  );
-
-  // 1. Filter Tasks: Match ID or Name
-  const filteredTasks = tasks.filter(t => {
-      if (!t.subjectId) return false;
-      
-      // Robust ID Check
-      if (assignedSubjects.some(id => String(id) === String(t.subjectId))) return true;
-      
-      const sub = subjects.find(s => String(s.id) === String(t.subjectId));
-      if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
-      
-      return false;
-  });
-
-  // 2. Filter Evaluations based on filtered tasks
-  const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
-  const filteredEvaluations = evaluations.filter(e => filteredTaskIds.has(e.taskId));
-
-  // 3. Filter Students
-  const filteredStudents = students.filter(s => {
-      // Class Match
-      const studentClass = classes.find(c => String(c.id) === String(s.classId));
-      const studentClassName = studentClass?.name?.trim();
-      const isClassMatch = assignedClasses.some(id => String(id) === String(s.classId)) || 
-                           (studentClassName && assignedClassNames.has(studentClassName));
-      
-      if (!isClassMatch) return false;
-      
-      // Section Match
-      if (s.sectionId) {
-          const studentSection = sections.find(sec => String(sec.id) === String(s.sectionId));
-          const studentSectionName = studentSection?.name?.trim();
-          const isSectionMatch = assignedSections.some(id => String(id) === String(s.sectionId)) ||
-                                 (studentSectionName && assignedSectionNames.has(studentSectionName));
-          return isSectionMatch;
-      }
-      return true;
-  });
-
-  // 4. Filter Groups
-  const filteredGroups = groups.filter(g => {
-      if (!g.classId) return false;
-      
-      const groupClass = classes.find(c => String(c.id) === String(g.classId));
-      const groupClassName = groupClass?.name?.trim();
-      const isClassMatch = assignedClasses.some(id => String(id) === String(g.classId)) || 
-                           (groupClassName && assignedClassNames.has(groupClassName));
-      
-      if (!isClassMatch) return false;
-      
-      if (g.sectionId) {
-          const groupSection = sections.find(s => String(s.id) === String(g.sectionId));
-          const groupSectionName = groupSection?.name?.trim();
-          const isSectionMatch = assignedSections.some(id => String(id) === String(g.sectionId)) ||
-                                 (groupSectionName && assignedSectionNames.has(groupSectionName));
-          return isSectionMatch;
-      }
-      return true;
-  });
-
-  return {
-      tasks: filteredTasks,
-      evaluations: filteredEvaluations,
-      students: filteredStudents,
-      groups: filteredGroups
-  };
-}
 
 // --- DOM Rendering Functions ---
 /** Renders the calculated statistics into the DOM elements. */
@@ -2992,3 +2951,107 @@ function _setupDashboardFilters() {
 
 
 
+// --- Helper for Teacher Filtering ---
+function _getFilteredDataForTeacher(state, teacher) {
+    if (!teacher) return state;
+
+    const assignedClasses = teacher.assignedClasses || [];
+    const assignedSections = teacher.assignedSections || [];
+    const assignedSubjects = teacher.assignedSubjects || [];
+
+    const allSubjects = state.subjects || [];
+    const allSections = state.sections || [];
+
+    // Pre-calculate name sets for robust matching
+    const assignedSubjectNames = new Set(
+        allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+    );
+    const assignedSectionNames = new Set(
+        allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
+    );
+
+    // 1. Filter Tasks (By Subject)
+    // Teachers see tasks ONLY for their assigned subjects
+    const filteredTasks = state.tasks.filter(t => {
+        if (!t.subjectId) return false; // Tasks without subject are hidden
+        if (assignedSubjects.includes(t.subjectId)) return true;
+        
+        return false;
+    });
+
+    // 2. Filter Students (By Class AND Section)
+    const filteredStudents = state.students.filter(s => {
+        // Must match Class
+        if (!assignedClasses.includes(s.classId)) return false;
+        
+        // Must match Section (if assigned)
+        // If teacher has NO section assignments, maybe they see all sections? 
+        // Usually teachers are assigned specific sections.
+        if (assignedSections.length > 0) {
+            if (assignedSections.includes(s.sectionId)) return true;
+            
+            // Name Match
+            const sec = allSections.find(sec => sec.id === s.sectionId);
+            if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+            
+            return false;
+        }
+        return true; // No section restriction? (Rare, but safe fallback)
+    });
+
+    // 3. Filter Groups (By Class AND Section)
+    const filteredGroups = state.groups.filter(g => {
+        // Must match Class
+        if (!assignedClasses.includes(g.classId)) return false;
+        
+        // Must match Section (if assigned)
+        if (assignedSections.length > 0) {
+            // Some groups might be "Universal" (no sectionId), but usually they belong to a section
+            if (!g.sectionId) return true; // Allow universal groups for the class
+            
+            if (assignedSections.includes(g.sectionId)) return true;
+            
+            // Name Match
+            const sec = allSections.find(s => s.id === g.sectionId);
+            if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+            
+            return false;
+        }
+        return true;
+    });
+
+    // 4. Filter Evaluations (By Task AND Student/Group Context)
+    // Must be for a filtered task
+    const filteredTaskIds = new Set(filteredTasks.map(t => t.id));
+    
+    const filteredEvaluations = state.evaluations.filter(e => {
+        if (!filteredTaskIds.has(e.taskId)) return false;
+        
+        // Also check if the evaluation belongs to a valid group/student context
+        // (Double check to ensure we don't show evals for groups we can't see)
+        // Although filtering by Task (Subject) is the primary permission for evaluations.
+        // But if I teach Math to Section A, I shouldn't see Math evals for Section B.
+        
+        // Check Class/Section of the evaluation (if stored) or via Group
+        const group = state.groups.find(g => g.id === e.groupId);
+        if (group) {
+             if (!assignedClasses.includes(group.classId)) return false;
+             
+             if (assignedSections.length > 0 && group.sectionId) {
+                 if (assignedSections.includes(group.sectionId)) return true;
+                 const sec = allSections.find(s => s.id === group.sectionId);
+                 if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+                 return false;
+             }
+        }
+        
+        return true;
+    });
+
+    return {
+        tasks: filteredTasks,
+        students: filteredStudents,
+        groups: filteredGroups,
+        evaluations: filteredEvaluations
+    };
+}

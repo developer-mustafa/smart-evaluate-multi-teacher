@@ -264,7 +264,7 @@ export function render() {
 
     if (user && user.type === 'teacher') {
 
-        // Manual loose filtering for Teachers to handle ID mismatches (Deduplication support)
+        // Strict Filtering for Teachers (Matching Dashboard Logic)
         const allStudents = stateManager.get('students') || [];
         const allEvaluations = stateManager.get('evaluations') || [];
         const allTasks = stateManager.get('tasks') || [];
@@ -277,14 +277,32 @@ export function render() {
         
         const allSections = stateManager.get('sections') || [];
         const allSubjects = stateManager.get('subjects') || [];
+        const allClasses = stateManager.get('classes') || [];
 
-        // 1. Filter Students (Class + Section Name Match)
+        // Pre-calculate name sets for robust matching
+        const assignedSubjectNames = new Set(
+            allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
+        );
         const assignedSectionNames = new Set(
             allSections.filter(s => assignedSections.includes(s.id)).map(s => s.name?.trim())
         );
+
+        // 1. Filter Tasks (By Subject)
+        tasks = allTasks.filter(t => {
+            if (!t.subjectId) return false;
+            if (assignedSubjects.includes(t.subjectId)) return true;
+            
+            // Name Match
+            const sub = allSubjects.find(s => s.id === t.subjectId);
+            if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
+            
+            return false;
+        });
+
+        // 2. Filter Students (By Class AND Section)
         students = allStudents.filter(s => {
-            if (assignedClasses.length > 0 && !assignedClasses.includes(s.classId)) return false;
-            // Section: Match ID OR Name
+            if (!assignedClasses.includes(s.classId)) return false;
+            
             if (assignedSections.length > 0) {
                 if (assignedSections.includes(s.sectionId)) return true;
                 const sec = allSections.find(sec => sec.id === s.sectionId);
@@ -294,48 +312,62 @@ export function render() {
             return true;
         });
 
-        // 2. Filter Tasks (Subject Name Match)
-        const assignedSubjectNames = new Set(
-            allSubjects.filter(s => assignedSubjects.includes(s.id)).map(s => s.name?.trim())
-        );
-        tasks = allTasks.filter(t => {
-            // Subject: Match ID OR Name
-            if (assignedSubjects.length > 0) {
-                if (t.subjectId && assignedSubjects.includes(t.subjectId)) return true;
-                if (t.subjectId) {
-                    const sub = allSubjects.find(s => s.id === t.subjectId);
-                    if (sub && sub.name && assignedSubjectNames.has(sub.name.trim())) return true;
-                }
+        // 3. Filter Groups (By Class AND Section)
+        groups = allGroups.filter(g => {
+            if (!assignedClasses.includes(g.classId)) return false;
+            
+            if (assignedSections.length > 0) {
+                if (!g.sectionId) return true; // Allow universal groups
+                if (assignedSections.includes(g.sectionId)) return true;
+                const sec = allSections.find(s => s.id === g.sectionId);
+                if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
                 return false;
             }
             return true;
         });
 
-        // 3. Filter Groups (Class Match - Universal)
-        groups = allGroups.filter(g => {
-            if (assignedClasses.length > 0 && !assignedClasses.includes(g.classId)) return false;
+        // 4. Filter Evaluations (By Task AND Student/Group Context)
+        const filteredTaskIds = new Set(tasks.map(t => t.id));
+        evaluations = allEvaluations.filter(e => {
+            if (!filteredTaskIds.has(e.taskId)) return false;
+            
+            // Context check
+            const group = allGroups.find(g => g.id === e.groupId);
+            if (group) {
+                 if (!assignedClasses.includes(group.classId)) return false;
+                 if (assignedSections.length > 0 && group.sectionId) {
+                     if (assignedSections.includes(group.sectionId)) return true;
+                     const sec = allSections.find(s => s.id === group.sectionId);
+                     if (sec && sec.name && assignedSectionNames.has(sec.name.trim())) return true;
+                     return false;
+                 }
+            }
             return true;
         });
 
-        // 4. Filter Evaluations (Based on filtered Tasks)
-        const filteredTaskIds = new Set(tasks.map(t => t.id));
-        evaluations = allEvaluations.filter(e => filteredTaskIds.has(e.taskId));
-
-        classes = stateManager.get('classes');
-        sections = stateManager.get('sections');
+        // 5. Filter Lookup Lists (Classes, Sections, Subjects) for Dropdowns
+        classes = allClasses.filter(c => assignedClasses.includes(c.id));
         
-        // Filter subjects based on relevant tasks
-        const relevantSubjectIds = new Set(tasks.map(t => t.subjectId));
-        cachedRankingData.subjects = allSubjects.filter(s => relevantSubjectIds.has(s.id));
+        sections = allSections.filter(s => {
+            if (assignedSections.length > 0) {
+                if (assignedSections.includes(s.id)) return true;
+                if (s.name && assignedSectionNames.has(s.name.trim())) return true;
+                return false;
+            }
+            return true; // If no section assigned, maybe all? Or none? Assuming all if empty is risky, but handled by student filter.
+        });
 
-        // Automatic Teacher Filtering: Set initial filter state based on assignments
+        // Filter subjects to only assigned ones
+        cachedRankingData.subjects = allSubjects.filter(s => {
+            if (assignedSubjects.includes(s.id)) return true;
+            if (s.name && assignedSubjectNames.has(s.name.trim())) return true;
+            return false;
+        });
+
+        // Automatic Teacher Filtering: Set initial filter state
         if (user.assignedClassId) filterState.classId = user.assignedClassId;
         if (user.assignedSectionId) filterState.sectionId = user.assignedSectionId;
         if (user.assignedSubjectId) filterState.subjectId = user.assignedSubjectId;
-        
-        // If teacher has assigned subjects but no specific single subject ID in user object (e.g. array), 
-        // we might want to default to the first one or handle it. 
-        // Assuming user.assignedSubjectId is the single assigned subject for now as per "Teacher Management".
     } else {
         const state = stateManager.getState();
         students = state.students;
