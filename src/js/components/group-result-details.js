@@ -134,6 +134,47 @@
       console.log('👨‍🏫 Teacher modal: Filtered evaluations from', state.evaluations.filter((ev) => String(ev?.groupId) === String(groupId)).length, 'to', evals.length);
     }
 
+    // --- NEW: Filter based on Global Active Context (Class, Section, Subject) ---
+    const activeContext = app?.managers?.stateManager?.get?.('activeContext');
+    if (activeContext) {
+        const { classId, sectionId, subjectId } = activeContext;
+        
+        if (classId || sectionId || subjectId) {
+            const allSubjects = app?.managers?.stateManager?.get?.('subjects') || [];
+            const selectedSubject = allSubjects.find(s => s.id === subjectId);
+            const selectedSubjectName = selectedSubject?.name?.trim();
+
+            evals = evals.filter((ev) => {
+                const task = taskMap.get(ev?.taskId);
+                if (!task) return false;
+
+                // Filter by Class (Relaxed: Allow if task has no classId)
+                if (classId && task.classId && String(task.classId) !== String(classId)) return false;
+
+                // Filter by Section (Relaxed: Allow if task has no sectionId)
+                if (sectionId && task.sectionId && String(task.sectionId) !== String(sectionId)) return false;
+
+                // Filter by Subject (Robust: ID or Name match)
+                if (subjectId && task.subjectId) {
+                    // Try ID match first
+                    if (String(task.subjectId) === String(subjectId)) return true;
+                    
+                    // Try Name match (if ID failed)
+                    if (selectedSubjectName) {
+                        const taskSubject = allSubjects.find(s => s.id === task.subjectId);
+                        if (taskSubject?.name?.trim() === selectedSubjectName) return true;
+                    }
+                    
+                    return false;
+                }
+
+                return true;
+            });
+            console.log('🔍 Global Context Filter Applied (Relaxed):', { classId, sectionId, subjectId, count: evals.length });
+        }
+    }
+    // -----------------------------------------------------------------------
+
     const perEval = evals.map((ev) => {
       const task = taskMap.get(ev?.taskId);
       const max = parseFloat(ev?.maxPossibleScore) || parseFloat(task?.maxScore) || 100;

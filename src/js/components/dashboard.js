@@ -290,7 +290,7 @@ function _getDashboardHTMLStructure() {
       <div aria-hidden class="pointer-events-none absolute -inset-px rounded-[24px] opacity-[0.10] blur-2xl"
            style="background: conic-gradient(#fde68a, #f0abfc, #93c5fd, #fde68a)"></div>
 
-      <div class="relative p-2 sm:p-3">
+      <div class="relative p-2">
         <div class="flex flex-col items-center justify-between gap-2 md:flex-row">
 
           <!-- Left: title & icon -->
@@ -355,42 +355,68 @@ function _getDashboardHTMLStructure() {
           
 
         </div>
-         <div class="flex flex-wrap gap-2 items-center mt-2">
-            <!-- Teacher/Admin Filters (Left) -->
-            <div id="teacherFiltersContainer" class="hidden flex flex-wrap gap-2 items-center">
-                <!-- Teacher Info Card -->
-                <div id="teacherInfoCard" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200/60 dark:border-indigo-700/50 shadow-sm">
-                    <i class="fas fa-chalkboard-teacher text-indigo-600 dark:text-indigo-300"></i>
-                    <div class="text-xs font-semibold text-indigo-900 dark:text-indigo-200">
-                        <span id="teacherNameDisplay">শিক্ষক</span>
-                        <span class="text-indigo-400 dark:text-indigo-500 mx-1">·</span>
-                        <span id="teacherAssignmentDisplay" class="text-indigo-700 dark:text-indigo-300"></span>
+         <div class="flex flex-col gap-1 mt-2">
+            
+            <div id="teacherFiltersContainer" class="hidden w-full">
+                <div id="teacherInfoCard" class="hidden w-full flex flex-wrap items-center gap-2 px-1 py-1">
+                    <div class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                        <i class="fas fa-user-circle text-blue-600 dark:text-blue-400"></i>
+                        <span class="font-bold" id="teacherNameDisplay">শিক্ষক</span>
+                        <span class="text-slate-400 dark:text-slate-500">|</span>
                     </div>
-                </div>
-
-                <div class="flex flex-wrap gap-2 items-center">
-                    <select id="dashboardClassFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
-                        <option value="">সকল ক্লাস</option>
-                    </select>
-                    <select id="dashboardSectionFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
-                        <option value="">সকল শাখা</option>
-                    </select>
-                    <select id="dashboardSubjectFilter" class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1.5 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80 min-w-[120px]">
-                        <option value="">সকল বিষয়</option>
-                    </select>
+                    <div id="teacherAssignmentDisplay" class="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        <!-- Details will be populated here -->
+                    </div>
                 </div>
             </div>
 
-             <!-- Assignment Filter (Right) -->
-             <div class="relative">
-                <select id="dashboardAssignmentFilter" 
-                  class="appearance-none bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 
-                  text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-1 pl-2 pr-6 
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer backdrop-blur-sm transition-colors hover:bg-white/80 dark:hover:bg-slate-800/80">
-                  <option value="latest">সর্বশেষ এসাইনমেন্ট</option>
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-500 dark:text-slate-400">
-                  <i class="fas fa-chevron-down text-[10px]"></i>
+            <!-- Row 2: Filters (Red Area) -->
+            <!-- All filters in one row with minimal height -->
+            <div class="w-full mt-1">
+                <div class="flex flex-wrap gap-2 items-center justify-between">
+                    
+                    <!-- Context Filters Group -->
+                    <div id="contextFiltersWrapper" class="flex flex-1 flex-wrap gap-2 items-center hidden min-w-0">
+                        <div class="relative flex-1 min-w-[100px]">
+                            <select id="dashboardClassFilter" class="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:border-indigo-300 dark:hover:border-indigo-600">
+                                <option value="">সকল ক্লাস</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                <i class="fas fa-chevron-down text-[10px]"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="relative flex-1 min-w-[100px]">
+                            <select id="dashboardSectionFilter" class="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:border-indigo-300 dark:hover:border-indigo-600">
+                                <option value="">সকল শাখা</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                <i class="fas fa-chevron-down text-[10px]"></i>
+                            </div>
+                        </div>
+
+                        <div class="relative flex-1 min-w-[100px]">
+                            <select id="dashboardSubjectFilter" class="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-2 px-3 pr-8 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:border-indigo-300 dark:hover:border-indigo-600">
+                                <option value="">সকল বিষয়</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                                <i class="fas fa-chevron-down text-[10px]"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assignment Filter -->
+                    <div class="relative flex-1 min-w-[140px]">
+                        <select id="dashboardAssignmentFilter" 
+                          class="w-full appearance-none bg-indigo-50 dark:bg-indigo-950 border border-indigo-100 dark:border-indigo-800 
+                          text-indigo-700 dark:text-indigo-200 text-xs font-semibold rounded-lg py-2 pl-3 pr-8 
+                          focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:bg-indigo-100 dark:hover:bg-indigo-900">
+                          <option value="latest">সর্বশেষ এসাইনমেন্ট</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-indigo-400 dark:text-indigo-300">
+                          <i class="fas fa-chevron-down text-[10px]"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
          </div>
@@ -1383,16 +1409,19 @@ function _updateDashboardForTask(taskId) {
        filteredEvaluations = evaluations.filter(e => String(e.taskId) === String(targetTask.id));
        
        // --- NEW: Contextual Filtering based on Task ---
-       // Filter students and groups to match the task's Class and Section
+       // Filter students to match the task's Class and Section
        if (targetTask.classId) {
            students = students.filter(s => String(s.classId) === String(targetTask.classId));
-           groups = groups.filter(g => String(g.classId) === String(targetTask.classId));
        }
        if (targetTask.sectionId) {
            students = students.filter(s => String(s.sectionId) === String(targetTask.sectionId));
-           // Allow groups that match the section OR are universal (no sectionId)
-           groups = groups.filter(g => !g.sectionId || String(g.sectionId) === String(targetTask.sectionId));
        }
+
+       // Filter groups based on the REMAINING students
+       // This ensures that if a group has students who are part of this task/class/section, the group is shown
+       // regardless of whether the group's own classId/sectionId matches perfectly (which fixes the "Elite Group" missing issue)
+       const activeStudentGroupIds = new Set(students.map(s => s.groupId).filter(Boolean));
+       groups = groups.filter(g => activeStudentGroupIds.has(g.id));
        
        console.log('🎯 Task Context Applied:', {
            task: targetTask.name,
@@ -2137,7 +2166,8 @@ function _calculateAcademicGroupStats(students, groupPerformanceData) {
       const avgScore = groupData.averageScore;
       
       // If group has no score, it doesn't contribute to stats
-      if (avgScore <= 0) return;
+      // FIX: Allow 0 score (it's a valid score)
+      if (avgScore < 0) return;
 
       // Find which Academic Groups this group belongs to based on its members
       // (A group usually belongs to one AG, but we handle mixed cases)
@@ -2831,37 +2861,58 @@ function _setupDashboardFilters() {
     const classSelect = document.getElementById('dashboardClassFilter');
     const sectionSelect = document.getElementById('dashboardSectionFilter');
     const subjectSelect = document.getElementById('dashboardSubjectFilter');
+
+    // Top Nav Elements (Desktop)
+    const topNavTeacherInfo = document.getElementById('topNavTeacherInfo');
+    const topNavTeacherName = document.getElementById('topNavTeacherName');
+    const topNavContextDetails = document.getElementById('topNavContextDetails');
+    const topNavFilters = document.getElementById('topNavFilters');
+    const topNavClassFilter = document.getElementById('topNavClassFilter');
+    const topNavSectionFilter = document.getElementById('topNavSectionFilter');
+    const topNavSubjectFilter = document.getElementById('topNavSubjectFilter');
     
-    // Get the wrapper div that contains all three filter selects
-    // This is the div with class "flex flex-wrap gap-2 items-center" inside teacherFiltersContainer
-    const filtersWrapper = classSelect?.parentElement;
+    // Dashboard Body Elements
+    const contextFiltersWrapper = document.getElementById('contextFiltersWrapper');
     
     console.log('🔍 Filter setup debug:', {
         teacherInfoContainer: !!teacherInfoContainer,
         teacherInfoCard: !!teacherInfoCard,
-        classSelect: !!classSelect,
-        sectionSelect: !!sectionSelect,
-        subjectSelect: !!subjectSelect,
-        filtersWrapper: !!filtersWrapper
+        contextFiltersWrapper: !!contextFiltersWrapper
     });
 
     const user = stateManager.get('currentUserData');
     const currentTeacher = stateManager.get('currentTeacher');
     const isTeacher = user && user.type === 'teacher';
-    // If user is undefined (auth not complete), assume admin since only authenticated users can access dashboard
     const isAdmin = user ? (user.type === 'admin' || user.type === 'super-admin') : true;
     
     console.log('👤 User type:', user?.type, 'isAdmin:', isAdmin, 'isTeacher:', isTeacher);
 
-    // === TEACHER & ADMIN: Show filter dropdowns ===
-    if (isTeacher || isAdmin) {
-        if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden');
-        if (filtersWrapper) filtersWrapper.classList.remove('hidden'); // Show filter dropdowns
+    // === SHOW FILTERS FOR ALL USERS (Admin, Teacher, Public) ===
+    
+    // Show containers
+    if (contextFiltersWrapper) contextFiltersWrapper.classList.remove('hidden');
+    if (topNavFilters) topNavFilters.classList.remove('hidden');
 
-        // Teacher Info Card logic
-        if (isTeacher) {
+    // Teacher Info Card logic (Teachers & Admins)
+    if (isTeacher || isAdmin) {
+            if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden'); // Show Row 2
             if (teacherInfoCard) teacherInfoCard.classList.remove('hidden');
-            if (teacherNameDisplay) teacherNameDisplay.textContent = currentTeacher?.name || user.email?.split('@')[0] || 'শিক্ষক';
+            
+            const displayName = currentTeacher?.name || user?.name || user?.email?.split('@')[0] || 'ব্যবহারকারী';
+            const userLabel = isTeacher ? 'লগইনকৃত শিক্ষক' : 'লগইনকৃত অ্যাডমিন';
+            
+            // Update Icon and Label
+            const iconContainer = teacherInfoCard.querySelector('.rounded-full');
+            const icon = teacherInfoCard.querySelector('i');
+            const labelSpan = teacherInfoCard.querySelector('span.text-xs'); // "লগইনকৃত শিক্ষক" label
+
+            if (labelSpan) labelSpan.textContent = userLabel;
+            
+            if (teacherNameDisplay) teacherNameDisplay.textContent = displayName;
+
+            // Hide Top Nav Context as we are showing the Body Card everywhere now
+            if (topNavTeacherInfo) topNavTeacherInfo.classList.add('hidden');
+            if (topNavTeacherName) topNavTeacherName.textContent = displayName;
             
             // Build assignment summary for display
             const assignedClasses = currentTeacher?.assignedClasses || [];
@@ -2879,17 +2930,20 @@ function _setupDashboardFilters() {
             const sectionNames = availableSections.map(s => s.name).join(', ') || 'N/A';
             const subjectNames = availableSubjects.map(s => s.name).join(', ') || 'N/A';
             
-            if (teacherAssignmentDisplay) {
-                teacherAssignmentDisplay.innerHTML = `
-                    <span class="text-indigo-600 dark:text-indigo-400">ক্লাস:</span> ${classNames} 
-                    <span class="mx-1 text-indigo-400">|</span>
-                    <span class="text-indigo-600 dark:text-indigo-400">শাখা:</span> ${sectionNames}
-                    <span class="mx-1 text-indigo-400">|</span>
-                    <span class="text-indigo-600 dark:text-indigo-400">বিষয়:</span> ${subjectNames}
-                `;
-            }
+            const detailsHTML = `
+                <span class="text-indigo-600 dark:text-indigo-400">ক্লাস:</span> ${classNames} 
+                <span class="mx-1 text-indigo-400">|</span>
+                <span class="text-indigo-600 dark:text-indigo-400">শাখা:</span> ${sectionNames}
+                <span class="mx-1 text-indigo-400">|</span>
+                <span class="text-indigo-600 dark:text-indigo-400">বিষয়:</span> ${subjectNames}
+            `;
+
+            if (teacherAssignmentDisplay) teacherAssignmentDisplay.innerHTML = detailsHTML;
+            if (topNavContextDetails) topNavContextDetails.innerHTML = detailsHTML;
         } else {
+            // Hide for non-teachers (Admins, Public)
             if (teacherInfoCard) teacherInfoCard.classList.add('hidden');
+            if (topNavTeacherInfo) topNavTeacherInfo.classList.add('hidden');
         }
 
         if (!classSelect || !sectionSelect || !subjectSelect) return;
@@ -2919,34 +2973,60 @@ function _setupDashboardFilters() {
         const uniqueSections = Array.from(new Map(targetSections.map(s => [s.name, s])).values());
         const uniqueSubjects = Array.from(new Map(targetSubjects.map(s => [s.name, s])).values());
 
-        uiManager.populateSelect(classSelect, uniqueClasses.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
-        uiManager.populateSelect(sectionSelect, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
-        uiManager.populateSelect(subjectSelect, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
+        const populate = (sel, items, defaultText) => {
+            if (sel) uiManager.populateSelect(sel, items.map(i => ({ value: i.id, text: i.name })), defaultText);
+        };
+
+        populate(classSelect, uniqueClasses, 'সকল ক্লাস');
+        populate(sectionSelect, uniqueSections, 'সকল শাখা');
+        populate(subjectSelect, uniqueSubjects, 'সকল বিষয়');
+
+        populate(topNavClassFilter, uniqueClasses, 'সকল ক্লাস');
+        populate(topNavSectionFilter, uniqueSections, 'সকল শাখা');
+        populate(topNavSubjectFilter, uniqueSubjects, 'সকল বিষয়');
 
         // Set current values from activeContext
         const context = stateManager.get('activeContext') || {};
-        if (context.classId) classSelect.value = context.classId;
-        if (context.sectionId) sectionSelect.value = context.sectionId;
-        if (context.subjectId) subjectSelect.value = context.subjectId;
+        
+        const setVal = (sel, val) => { if (sel && val) sel.value = val; };
+        
+        setVal(classSelect, context.classId);
+        setVal(sectionSelect, context.sectionId);
+        setVal(subjectSelect, context.subjectId);
+
+        setVal(topNavClassFilter, context.classId);
+        setVal(topNavSectionFilter, context.sectionId);
+        setVal(topNavSubjectFilter, context.subjectId);
 
         // Add Listeners
-        const updateContext = () => {
+        const updateContext = (source) => {
+            let cId, sId, subId;
+            if (source === 'topnav') {
+                cId = topNavClassFilter?.value;
+                sId = topNavSectionFilter?.value;
+                subId = topNavSubjectFilter?.value;
+            } else {
+                cId = classSelect?.value;
+                sId = sectionSelect?.value;
+                subId = subjectSelect?.value;
+            }
+
             stateManager.setActiveContext({
-                classId: classSelect.value || null,
-                sectionId: sectionSelect.value || null,
-                subjectId: subjectSelect.value || null
+                classId: cId || null,
+                sectionId: sId || null,
+                subjectId: subId || null
             });
             render(); // Re-render dashboard with new filters
         };
 
-        classSelect.onchange = updateContext;
-        sectionSelect.onchange = updateContext;
-        subjectSelect.onchange = updateContext;
-        return;
-    }
+        if (classSelect) classSelect.onchange = () => updateContext('body');
+        if (sectionSelect) sectionSelect.onchange = () => updateContext('body');
+        if (subjectSelect) subjectSelect.onchange = () => updateContext('body');
 
-    // === PUBLIC USERS: Hide everything ===
-    if (teacherInfoContainer) teacherInfoContainer.classList.add('hidden');
+        if (topNavClassFilter) topNavClassFilter.onchange = () => updateContext('topnav');
+        if (topNavSectionFilter) topNavSectionFilter.onchange = () => updateContext('topnav');
+        if (topNavSubjectFilter) topNavSubjectFilter.onchange = () => updateContext('topnav');
+
 }
 
 

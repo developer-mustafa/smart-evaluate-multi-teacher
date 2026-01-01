@@ -835,17 +835,53 @@ function _rerenderRankingWithFilters() {
 
 /* ---------------- Render (Tabs + Compact Cards) ---------------- */
 
+// Pagination State
+const paginationState = {
+  currentPage: 1,
+  itemsPerPage: 20,
+  isLoading: false,
+  hasMore: true,
+  observer: null,
+};
+
+function _resetPagination() {
+  paginationState.currentPage = 1;
+  paginationState.isLoading = false;
+  paginationState.hasMore = true;
+  if (paginationState.observer) {
+    paginationState.observer.disconnect();
+    paginationState.observer = null;
+  }
+}
+
+/* ---------------- Render (Tabs + Compact Cards + Infinite Scroll) ---------------- */
+
 function _renderRankingList(rankedStudents, rankedGroups, groups, students, classes, sections, options = {}) {
   if (!elements.studentRankingListContainer) return;
 
   const onlyUpdateStudents = Boolean(options?.onlyUpdateStudents);
-  let studentCardsTarget = null;
-  if (onlyUpdateStudents) {
-    studentCardsTarget = elements.studentRankingListContainer.querySelector('[data-student-cards]');
-    if (!studentCardsTarget) return;
+  const isAppend = Boolean(options?.append);
+
+  // If not appending, reset pagination
+  if (!isAppend && !onlyUpdateStudents) {
+    _resetPagination();
   }
 
-  const groupsMap = new Map((groups || []).map((g) => [g.id, g.name])); // for student group name
+  // Determine data source based on tab
+  const isStudentTab = uiTabState.active === 'students';
+  const fullList = isStudentTab
+    ? _filterStudentsForSearch(rankedStudents)
+    : rankedGroups;
+
+  // Calculate slice
+  const startIndex = 0;
+  const endIndex = paginationState.currentPage * paginationState.itemsPerPage;
+  const currentSlice = fullList.slice(startIndex, endIndex);
+  
+  paginationState.hasMore = endIndex < fullList.length;
+
+  // Maps & Formatters
+  const groupsMap = new Map((groups || []).map((g) => [g.id, g.name]));
   const classesMap = new Map((classes || []).map((c) => [c.id, c.name]));
   const sectionsMap = new Map((sections || []).map((s) => [s.id, s.name]));
 
@@ -857,198 +893,226 @@ function _renderRankingList(rankedStudents, rankedGroups, groups, students, clas
     const str = `${Math.round(Number(n) || 0)}`;
     return helpers?.convertToBanglaNumber ? helpers.convertToBanglaNumber(str) : str;
   };
-  const formatNum2 = (n) => {
-    const str = (Number(n) || 0).toFixed(2);
-    return helpers?.convertToBanglaNumber ? helpers.convertToBanglaNumber(str) : str;
-  };
   const toBn = (v) => {
     const raw = (v ?? '').toString();
     return helpers?.convertToBanglaNumber ? helpers.convertToBanglaNumber(raw) : raw;
   };
 
-  // Determine accent palette from current tab top rank
-  const topStudent = (rankedStudents && rankedStudents[0]) || null;
-  const topGroup = (rankedGroups && rankedGroups[0]) || null;
-  const paletteNow =
-    uiTabState.active === 'students'
-      ? _getScorePalette(topStudent ? topStudent.efficiency : 70)
-      : _getScorePalette(topGroup ? topGroup.efficiency : 70);
-
-  // Build tabs + search row
-  const searchDisabled = uiTabState.active !== 'students';
-  const nameValue = _escapeHtml(studentSearchState.name);
-  const rollValue = _escapeHtml(studentSearchState.roll);
-
-  const tabbar = `
-    <div class="rk-tabbar rk-surface" style="--rk-accent:${paletteNow.solid}; --rk-grad:${paletteNow.grad}; --rk-glow:${
-    paletteNow.shadow
-  };">
-      <div class="rk-tabs">
-        <button class="rk-tab" data-tab="students" aria-selected="${
-          uiTabState.active === 'students'
-        }">শিক্ষার্থী র‍্যাঙ্কিং</button>
-        <button class="rk-tab" data-tab="groups" aria-selected="${
-          uiTabState.active === 'groups'
-        }">গ্রুপ র‍্যাঙ্কিং</button>
-      </div>
-      <div class="rk-tab-search">
-        <input id="studentSearchName" type="text" class="rk-input" placeholder="নাম দিয়ে সার্চ"
-          value="${nameValue}" ${searchDisabled ? 'disabled' : ''} />
-        <input id="studentSearchRoll" type="text" inputmode="numeric" autocomplete="off"
-          class="rk-input" placeholder="রোল (এক্স্যাক্ট)" value="${rollValue}" ${searchDisabled ? 'disabled' : ''} />
-      </div>
-    </div>
-  `;
-
-  // STUDENT CARDS (with responsive badge grid & meter size)
-  const studentCards =
-    rankedStudents && rankedStudents.length
-      ? (uiTabState.active === 'students' ? _filterStudentsForSearch(rankedStudents) : rankedStudents)
-          .map((item) => {
-            const s = item.student;
-            const rankText = _toBnRank(item.rank);
-            const avgPct = formatPct2(item.efficiency);
-            const evals = formatInt(item.evalCount);
-            // const maxPossible = formatNum2(item.maxScoreSum);
-            // const totalMark = formatNum2(item.totalScore);
-            const palette = _getScorePalette(item.efficiency);
-
-            const groupName = groupsMap.get(s.groupId) || 'গ্রুপ নেই';
-            const className = classesMap.get(s.classId) || '';
-            const sectionName = sectionsMap.get(s.sectionId) || '';
-            
-            // Subject Badge (if filtered)
-            let subjectBadge = '';
-            if (filterState.subjectId) {
-                const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
-                if (subject) {
-                     subjectBadge = `<div class="rk-badge rk-badge--compact" style="--rk-badge-bg:rgba(99,102,241,0.1); --rk-badge-fg:#4f46e5; --rk-badge-border:rgba(99,102,241,0.2);">
-                        <i class="fas fa-book"></i> ${subject.name}
-                     </div>`;
-                }
+  // Generate HTML for the current slice
+  const generateCardHTML = (item, type) => {
+      if (type === 'student') {
+        const s = item.student;
+        const rankText = _toBnRank(item.rank);
+        const avgPct = formatPct2(item.efficiency);
+        const evals = formatInt(item.evalCount);
+        const palette = _getScorePalette(item.efficiency);
+        const groupName = groupsMap.get(s.groupId) || 'গ্রুপ নেই';
+        const className = classesMap.get(s.classId) || '';
+        const sectionName = sectionsMap.get(s.sectionId) || '';
+        
+        let subjectBadge = '';
+        if (filterState.subjectId) {
+            const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
+            if (subject) {
+                    subjectBadge = `<div class="rk-badge rk-badge--compact" style="--rk-badge-bg:rgba(99,102,241,0.1); --rk-badge-fg:#4f46e5; --rk-badge-border:rgba(99,102,241,0.2);">
+                    <i class="fas fa-book"></i> ${subject.name}
+                    </div>`;
             }
+        }
 
-            const idLine = `রোল: ${toBn(s.roll || '—')} · ক্লাস: ${className} · শাখা: ${sectionName} · গ্রুপ: ${_escapeHtml(groupName)}`;
+        const idLine = `রোল: ${toBn(s.roll || '—')} · ক্লাস: ${className} · শাখা: ${sectionName} · গ্রুপ: ${_escapeHtml(groupName)}`;
+        const branchMeta = _branchBadgeMeta(s.academicGroup);
+        const roleMeta = _roleBadgeMeta(s.role);
+        const branchBadge = _renderBadge(branchMeta, s.academicGroup || 'একাডেমিক শাখা');
+        const roleBadge = _renderBadge(roleMeta, _roleLabel(s.role));
 
-            // Badges: Academic Branch + Role (soft colors)
-            const branchMeta = _branchBadgeMeta(s.academicGroup);
-            const roleMeta = _roleBadgeMeta(s.role);
-            const branchBadge = _renderBadge(branchMeta, s.academicGroup || 'একাডেমিক শাখা');
-            const roleBadge = _renderBadge(roleMeta, _roleLabel(s.role));
-
-            return `
+        return `
         <article class="ranking-card rk-card p-4 flex items-center gap-3 justify-between"
-          data-student-id="${s.id}" data-accent
-          style="--rk-accent:${palette.solid}; --rk-grad:${palette.grad}; --rk-glow:${palette.shadow};">
-          
-          <div class="flex items-start gap-3 min-w-0">
+            data-student-id="${s.id}" data-accent
+            style="--rk-accent:${palette.solid}; --rk-grad:${palette.grad}; --rk-glow:${palette.shadow};">
+            <div class="flex items-start gap-3 min-w-0">
             <div class="rk-chip px-3 py-2 text-center shrink-0">
-              <div class="text-sm font-bold">${rankText}</div>
-              <div class="rk-micro text-gray-500 dark:text-gray-400">র‍্যাঙ্ক</div>
+                <div class="text-sm font-bold">${rankText}</div>
+                <div class="rk-micro text-gray-500 dark:text-gray-400">র‍্যাঙ্ক</div>
             </div>
             <div class="min-w-0">
-              <div class="flex items-center gap-2 min-w-0">
+                <div class="flex items-center gap-2 min-w-0">
                 <h4 class="font-semibold truncate" title="${_formatLabel(s.name)}">${_formatLabel(s.name)}</h4>
-              </div>
-
-              <p class="rk-micro mt-1 text-gray-600 dark:text-gray-300 truncate" title="${_escapeHtml(
-                idLine
-              )}">${idLine}</p>
-
-              <div class="rk-badges">
+                </div>
+                <p class="rk-micro mt-1 text-gray-600 dark:text-gray-300 truncate" title="${_escapeHtml(idLine)}">${idLine}</p>
+                <div class="rk-badges">
                 ${branchBadge}
                 ${roleBadge}
                 ${subjectBadge}
-              </div>
-
-              <div class="flex gap-4 sm:gap-8 mt-2 text-[10px] sm:text-sm font-semibold">
+                </div>
+                <div class="flex gap-4 sm:gap-8 mt-2 text-[10px] sm:text-sm font-semibold">
                 <div class="hidden sm:flex">গড়: ${avgPct}%</div>
                 <div class="">এসাইনমেন্ট অংশগ্রহন: ${evals} টি</div>
-              </div>
-             
+                </div>
             </div>
-          </div>
-
-          <div class="flex flex-col items-center gap-1 shrink-0">
+            </div>
+            <div class="flex flex-col items-center gap-1 shrink-0">
             ${_buildCircularMeter(item.efficiency, palette, _meterSize())}
             <span class="rk-micro text-gray-500 dark:text-gray-400">Avg%</span>
-          </div>
+            </div>
         </article>`;
-          })
-          .join('')
-      : `<div class="rk-card p-4 text-center text-gray-600 dark:text-gray-300">কোনো শিক্ষার্থী পাওয়া যায়নি।</div>`;
+      } else {
+        // Group Card
+        const g = item;
+        const rank = _toBnRank(g.rank);
+        const avgPct = formatPct2(g.efficiency);
+        const evals = formatInt(g.evalCount);
+        const palette = _getScorePalette(g.efficiency);
+        const membersLine = `মোট সদস্য: ${formatInt(g.groupSize)} · পরীক্ষায় অংশগ্রহন : ${formatInt(g.participantsCount)} · বাকি সদস্য: ${formatInt(g.remainingCount)}`;
+        const dataGroupAttr = g.groupId && g.groupId !== '__none' ? ` data-group-id="${_escapeHtml(g.groupId)}"` : '';
 
-  // GROUP CARDS
-  const groupCards =
-    rankedGroups && rankedGroups.length
-      ? rankedGroups
-          .map((g) => {
-            const rank = _toBnRank(g.rank);
-            const avgPct = formatPct2(g.efficiency);
-            const evals = formatInt(g.evalCount);
-            const palette = _getScorePalette(g.efficiency);
-            const membersLine = `মোট সদস্য: ${formatInt(g.groupSize)} · পরীক্ষায় অংশগ্রহন : ${formatInt(
-              g.participantsCount
-            )} · বাকি সদস্য: ${formatInt(g.remainingCount)}`;
-            const dataGroupAttr =
-              g.groupId && g.groupId !== '__none' ? ` data-group-id="${_escapeHtml(g.groupId)}"` : '';
-
-            return `
+        return `
         <article class="rk-card p-4 flex items-center gap-3 justify-between"
-          data-accent${dataGroupAttr} style="--rk-accent:${palette.solid}; --rk-grad:${palette.grad}; --rk-glow:${
-              palette.shadow
-            };">
-          
-          <div class="flex items-start gap-3 min-w-0">
+            data-accent${dataGroupAttr} style="--rk-accent:${palette.solid}; --rk-grad:${palette.grad}; --rk-glow:${palette.shadow};">
+            <div class="flex items-start gap-3 min-w-0">
             <div class="rk-chip px-3 py-2 text-center shrink-0">
-              <div class="text-sm font-bold">${rank}</div>
-              <div class="rk-micro text-gray-500 dark:text-gray-400">গ্রুপ র‍্যাঙ্ক</div>
+                <div class="text-sm font-bold">${rank}</div>
+                <div class="rk-micro text-gray-500 dark:text-gray-400">গ্রুপ র‍্যাঙ্ক</div>
             </div>
             <div class="min-w-0">
-              <h4 class="font-semibold truncate" title="${_formatLabel(g.groupName)}">${_formatLabel(g.groupName)}</h4>
-              <div class="mt-1 grid grid-cols-2 gap-2 text-[12px] font-semibold">
+                <h4 class="font-semibold truncate" title="${_formatLabel(g.groupName)}">${_formatLabel(g.groupName)}</h4>
+                <div class="mt-1 grid grid-cols-2 gap-2 text-[12px] font-semibold">
                 <div class="rk-chip px-2 py-1">গড়: ${avgPct}%</div>
                 <div class="rk-chip px-2 py-1">এসাইনমেন্ট অংশগ্রহন: ${evals} টি</div>
-              </div>
-              ${filterState.subjectId ? (() => {
-                  const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
-                  return subject ? `<div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium border border-indigo-100 dark:border-indigo-800"><i class="fas fa-book"></i> ${subject.name}</div>` : '';
-              })() : ''}
-              <p class="rk-micro mt-2 text-gray-600 dark:text-gray-300 truncate" title="${membersLine}">${membersLine}</p>
+                </div>
+                ${filterState.subjectId ? (() => {
+                    const subject = cachedRankingData.subjects.find(sub => sub.id === filterState.subjectId);
+                    return subject ? `<div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium border border-indigo-100 dark:border-indigo-800"><i class="fas fa-book"></i> ${subject.name}</div>` : '';
+                })() : ''}
+                <p class="rk-micro mt-2 text-gray-600 dark:text-gray-300 truncate" title="${membersLine}">${membersLine}</p>
             </div>
-          </div>
-
-          <div class="flex flex-col items-center gap-1 shrink-0">
+            </div>
+            <div class="flex flex-col items-center gap-1 shrink-0">
             ${_buildCircularMeter(g.efficiency, palette, _meterSize())}
             <span class="rk-micro text-gray-500 dark:text-gray-400">Avg%</span>
-          </div>
+            </div>
         </article>`;
-          })
-          .join('')
-      : `<div class="rk-card p-4 text-gray-700 dark:text-gray-300">গ্রুপ র‍্যাঙ্কিং প্রদর্শনের মতো তথ্য পাওয়া যায়নি।</div>`;
+      }
+  };
 
-  // CONTENT by tab
-  const content =
-    uiTabState.active === 'students'
-      ? `<div class="grid gap-4 grid-cols-1" data-student-cards>${studentCards}</div>`
-      : `<div class="grid gap-4 grid-cols-1">${groupCards}</div>`;
+  const cardsHTML = currentSlice.length > 0
+    ? currentSlice.map(item => generateCardHTML(item, isStudentTab ? 'student' : 'group')).join('')
+    : `<div class="rk-card p-4 text-center text-gray-600 dark:text-gray-300">কোনো তথ্য পাওয়া যায়নি।</div>`;
 
-  if (onlyUpdateStudents && studentCardsTarget) {
-    studentCardsTarget.innerHTML = studentCards;
+  // Sentinel HTML
+  const sentinelHTML = paginationState.hasMore 
+    ? `<div id="ranking-sentinel" class="py-4 text-center text-gray-500 dark:text-gray-400"><i class="fas fa-spinner fa-spin"></i> আরও লোড হচ্ছে...</div>` 
+    : '';
+
+  // DOM Updates
+  if (onlyUpdateStudents) {
+    const container = elements.studentRankingListContainer.querySelector('[data-student-cards]');
+    if (container) {
+        container.innerHTML = cardsHTML + sentinelHTML;
+        if (paginationState.hasMore) _setupIntersectionObserver();
+    }
     return;
   }
 
-  // Full repaint
-  uiManager.clearContainer(elements.studentRankingListContainer);
-  elements.studentRankingListContainer.innerHTML = `
-    <div class="space-y-4" style="--rk-accent:${paletteNow.solid}; --rk-grad:${paletteNow.grad}; --rk-glow:${paletteNow.shadow};">
-      ${tabbar}
-      ${content}
-    </div>
-  `;
+  if (isAppend) {
+      // Find the existing list container
+      const listContainer = elements.studentRankingListContainer.querySelector(isStudentTab ? '[data-student-cards]' : '[data-group-cards]');
+      if (listContainer) {
+          // Remove old sentinel
+          const oldSentinel = listContainer.querySelector('#ranking-sentinel');
+          if (oldSentinel) oldSentinel.remove();
+          
+          // Append new items
+          // We need to append ONLY the new items, but currentSlice contains ALL items from 0 to end.
+          // Optimization: Only generate HTML for the NEW items.
+          const newItemsStartIndex = (paginationState.currentPage - 1) * paginationState.itemsPerPage;
+          const newItems = fullList.slice(newItemsStartIndex, endIndex);
+          const newCardsHTML = newItems.map(item => generateCardHTML(item, isStudentTab ? 'student' : 'group')).join('');
+          
+          listContainer.insertAdjacentHTML('beforeend', newCardsHTML + sentinelHTML);
+          
+          if (paginationState.hasMore) _setupIntersectionObserver();
+      }
+  } else {
+      // Full Repaint
+      const paletteNow = isStudentTab
+        ? _getScorePalette((rankedStudents && rankedStudents[0]) ? rankedStudents[0].efficiency : 70)
+        : _getScorePalette((rankedGroups && rankedGroups[0]) ? rankedGroups[0].efficiency : 70);
 
-  _attachTabHandlers();
-  _attachStudentSearchListeners(); // harmless if disabled
+      const searchDisabled = !isStudentTab;
+      const nameValue = _escapeHtml(studentSearchState.name);
+      const rollValue = _escapeHtml(studentSearchState.roll);
+
+      const tabbar = `
+        <div class="rk-tabbar rk-surface" style="--rk-accent:${paletteNow.solid}; --rk-grad:${paletteNow.grad}; --rk-glow:${paletteNow.shadow};">
+        <div class="rk-tabs">
+            <button class="rk-tab" data-tab="students" aria-selected="${isStudentTab}">শিক্ষার্থী র‍্যাঙ্কিং</button>
+            <button class="rk-tab" data-tab="groups" aria-selected="${!isStudentTab}">গ্রুপ র‍্যাঙ্কিং</button>
+        </div>
+        <div class="rk-tab-search">
+            <input id="studentSearchName" type="text" class="rk-input" placeholder="নাম দিয়ে সার্চ"
+            value="${nameValue}" ${searchDisabled ? 'disabled' : ''} />
+            <input id="studentSearchRoll" type="text" inputmode="numeric" autocomplete="off"
+            class="rk-input" placeholder="রোল (এক্স্যাক্ট)" value="${rollValue}" ${searchDisabled ? 'disabled' : ''} />
+        </div>
+        </div>
+      `;
+
+      const content = isStudentTab
+        ? `<div class="grid gap-4 grid-cols-1" data-student-cards>${cardsHTML}${sentinelHTML}</div>`
+        : `<div class="grid gap-4 grid-cols-1" data-group-cards>${cardsHTML}${sentinelHTML}</div>`;
+
+      uiManager.clearContainer(elements.studentRankingListContainer);
+      elements.studentRankingListContainer.innerHTML = `
+        <div class="space-y-4" style="--rk-accent:${paletteNow.solid}; --rk-grad:${paletteNow.grad}; --rk-glow:${paletteNow.shadow};">
+        ${tabbar}
+        ${content}
+        </div>
+      `;
+
+      _attachTabHandlers();
+      _attachStudentSearchListeners();
+      if (paginationState.hasMore) _setupIntersectionObserver();
+  }
+}
+
+function _setupIntersectionObserver() {
+    if (paginationState.observer) {
+        paginationState.observer.disconnect();
+    }
+
+    const options = {
+        root: null,
+        rootMargin: '100px',
+        threshold: 0.1
+    };
+
+    paginationState.observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && paginationState.hasMore && !paginationState.isLoading) {
+                paginationState.isLoading = true;
+                paginationState.currentPage++;
+                
+                // Trigger append render
+                _renderRankingList(
+                    cachedRankingData.rankedStudents,
+                    cachedRankingData.rankedGroups,
+                    cachedRankingData.groups,
+                    cachedRankingData.students,
+                    cachedRankingData.classes,
+                    cachedRankingData.sections,
+                    { append: true }
+                );
+                
+                paginationState.isLoading = false;
+            }
+        });
+    }, options);
+
+    const sentinel = document.getElementById('ranking-sentinel');
+    if (sentinel) {
+        paginationState.observer.observe(sentinel);
+    }
 }
 
 /* ---------------- search + tab handlers ---------------- */
@@ -1079,6 +1143,15 @@ function _attachTabHandlers() {
   });
 }
 
+function _debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+}
+
 function _attachStudentSearchListeners() {
   if (!elements.studentRankingListContainer) return;
 
@@ -1086,13 +1159,18 @@ function _attachStudentSearchListeners() {
   const rollInput = elements.studentRankingListContainer.querySelector('#studentSearchRoll');
 
   const enabled = uiTabState.active === 'students';
+  
+  // Debounced handlers
+  const debouncedNameSearch = _debounce((val) => _handleStudentSearchChange('name', val), 300);
+  const debouncedRollSearch = _debounce((val) => _handleStudentSearchChange('roll', val), 300);
 
   if (nameInput) {
     elements.studentSearchNameInput = nameInput;
     nameInput.disabled = !enabled;
+    // Use 'input' for immediate feedback but debounced
     uiManager.addListener(nameInput, 'input', (event) => {
       if (!enabled) return;
-      _handleStudentSearchChange('name', event.target.value || '');
+      debouncedNameSearch(event.target.value || '');
     });
   }
   if (rollInput) {
@@ -1100,7 +1178,7 @@ function _attachStudentSearchListeners() {
     rollInput.disabled = !enabled;
     uiManager.addListener(rollInput, 'input', (event) => {
       if (!enabled) return;
-      _handleStudentSearchChange('roll', event.target.value || '');
+      debouncedRollSearch(event.target.value || '');
     });
   }
 }
@@ -1116,6 +1194,10 @@ function _handleStudentSearchChange(field, rawValue) {
 function _rerenderStudentCardsWithFilters() {
   if (uiTabState.active !== 'students') return;
   if (!cachedRankingData.rankedStudents || cachedRankingData.rankedStudents.length === 0) return;
+  
+  // Reset pagination on search
+  _resetPagination();
+  
   _renderRankingList(
     cachedRankingData.rankedStudents,
     cachedRankingData.rankedGroups,
