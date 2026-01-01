@@ -22,6 +22,43 @@ const KNOWN_TASK_TIME_KEYS = [
   'meetingTime',
 ];
 
+// Subject color palette for unique subject badges (Safe Colors & High Contrast)
+const SUBJECT_COLORS = [
+  'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-white dark:border-red-700',
+  'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-white dark:border-orange-700',
+  'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-white dark:border-yellow-700',
+  'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-white dark:border-green-700',
+  'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-white dark:border-teal-700',
+  'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-white dark:border-blue-700',
+  'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-white dark:border-indigo-700',
+  'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-white dark:border-purple-700',
+  'bg-pink-100 text-pink-800 border-pink-200 dark:bg-pink-900 dark:text-white dark:border-pink-700',
+  'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-white dark:border-gray-600',
+];
+
+// Get consistent color for a subject based on its name
+function _getSubjectColor(subjectName) {
+  if (!subjectName) return SUBJECT_COLORS[0];
+
+  // Predefined colors for common subjects to ensure distinctness
+  const lowerName = subjectName.trim().toLowerCase();
+  if (lowerName.includes('বাংলা') || lowerName.includes('bangla')) return SUBJECT_COLORS[0]; // Red/Rose
+  if (lowerName.includes('ইংরেজি') || lowerName.includes('english')) return SUBJECT_COLORS[5]; // Blue
+  if (lowerName.includes('গণিত') || lowerName.includes('math')) return SUBJECT_COLORS[1]; // Orange
+  if (lowerName.includes('আইসিটি') || lowerName.includes('ict') || lowerName.includes('তথ্য')) return SUBJECT_COLORS[4]; // Teal
+  if (lowerName.includes('বিজ্ঞান') || lowerName.includes('science')) return SUBJECT_COLORS[3]; // Green
+  if (lowerName.includes('ধর্ম') || lowerName.includes('religion') || lowerName.includes('ইসলাম')) return SUBJECT_COLORS[7]; // Purple
+  if (lowerName.includes('পদার্থ') || lowerName.includes('physics')) return SUBJECT_COLORS[8]; // Indigo
+  if (lowerName.includes('রসায়ন') || lowerName.includes('chemistry')) return SUBJECT_COLORS[2]; // Yellow/Amber
+  if (lowerName.includes('জীব') || lowerName.includes('biology')) return SUBJECT_COLORS[6]; // Pink/Fuchsia
+
+  let hash = 0;
+  for (let i = 0; i < subjectName.length; i++) {
+    hash = subjectName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
+}
+
 /**
  * Initializes the Dashboard component.
  */
@@ -174,12 +211,17 @@ export function render() {
         }
       }
     }
+    
+    // Robust check: Ensure groups is an array
+    if (!Array.isArray(groups)) {
+        console.warn('⚠️ Groups variable is not an array in render! Refetching from state.');
+        groups = stateManager.get('groups') || [];
+    }
+
     if (!groups || !students || !tasks || !evaluations) {
       uiManager.displayEmptyMessage(elements.page, 'ডেটা এখনো লোড হচ্ছে...');
       return;
     }
-
-    const stats = _calculateStats(groups, students, tasks, evaluations);
 
     // Re-create the inner HTML structure
     elements.page.innerHTML = _getDashboardHTMLStructure();
@@ -188,8 +230,10 @@ export function render() {
     _cacheInnerDOMElements();
 
     // Render statistics into the cached elements
+    const stats = _calculateStats(groups, students, tasks, evaluations);
     _renderStats(stats);
 
+    // Render dynamic lists
     // Render dynamic lists
     _renderTopGroups(stats.groupPerformanceData);
     _renderAcademicGroups(stats.academicGroupStats);
@@ -1514,9 +1558,12 @@ function _updateDashboardForTask(taskId) {
     let badgesHtml = '';
     if (className || sectionName || subjectName) {
         badgesHtml = `<span class="inline-flex items-center gap-1 ml-2 align-middle">`;
-        if (className) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-medium border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">${className}</span>`;
-        if (sectionName) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-[10px] font-medium border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300">${sectionName}</span>`;
-        if (subjectName) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium border border-indigo-100 dark:border-indigo-800">${subjectName}</span>`;
+        if (className) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-600 text-[10px] font-medium border border-slate-200 dark:border-slate-500 text-slate-600 dark:text-white">${className}</span>`;
+        if (sectionName) badgesHtml += `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-600 text-[10px] font-medium border border-slate-200 dark:border-slate-500 text-slate-600 dark:text-white">${sectionName}</span>`;
+        if (subjectName) {
+            const subjectColor = _getSubjectColor(subjectName);
+            badgesHtml += `<span class="px-1.5 py-0.5 rounded text-[10px] font-medium border ${subjectColor}">${subjectName}</span>`;
+        }
         badgesHtml += `</span>`;
     }
 
@@ -1553,9 +1600,9 @@ function _calculateStats(groups = [], students = [], tasks = [], evaluations = [
   const totalAcademicGroups = academicGroups.size;
   const pendingRoles = students.filter((s) => !s.role || s.role === '').length;
 
-  const groupPerformanceData = _calculateGroupPerformance(groups, students, evaluations, tasks);
+  const gpData = _calculateGroupPerformance(groups, students, evaluations, tasks);
   const groupRankingMeta = _calculateLeaderboardRankingMeta(groups, students, evaluations);
-  const validGroupPerformances = groupPerformanceData.filter((g) => g.evalCount > 0);
+  const validGroupPerformances = gpData.filter((g) => g.evalCount > 0);
   const totalOverallScore = validGroupPerformances.reduce((acc, group) => acc + group.averageScore, 0);
   const groupOverallProgress =
     validGroupPerformances.length > 0 ? totalOverallScore / validGroupPerformances.length : 0;
@@ -1569,7 +1616,8 @@ function _calculateStats(groups = [], students = [], tasks = [], evaluations = [
       }
     }
   }
-  const academicGroupStats = _calculateAcademicGroupStats(students, groupPerformanceData);
+
+  const academicGroupStats = _calculateAcademicGroupStats(students, { data: gpData });
   const latestAssignmentSummary = _calculateLatestAssignmentSummary(groups, students, tasks, evaluations);
   const assignmentAverageStats = _calculateAssignmentAverageStats(tasks, evaluations);
   const assignmentSummaries = assignmentAverageStats.assignmentSummaries;
@@ -1596,7 +1644,7 @@ function _calculateStats(groups = [], students = [], tasks = [], evaluations = [
     overallAssignmentAverage,
     latestAssignmentAverage,
     assignmentSummaries,
-    groupPerformanceData,
+    groupPerformanceData: gpData,
     groupRankingMeta,
     academicGroupStats,
     latestAssignmentSummary,
@@ -1647,7 +1695,8 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
   // Initialize group stats
   const groupStats = {};
   groups.forEach(g => {
-    groupStats[g.id] = {
+    const gId = String(g.id);
+    groupStats[gId] = {
       group: g,
       groupName: g.name,
       studentCount: 0,
@@ -1662,8 +1711,11 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
 
   // Count students per group
   students.forEach(s => {
-    if (s.groupId && groupStats[s.groupId]) {
-      groupStats[s.groupId].studentCount++;
+    if (s.groupId) {
+        const gId = String(s.groupId);
+        if (groupStats[gId]) {
+            groupStats[gId].studentCount++;
+        }
     }
   });
 
@@ -1687,14 +1739,17 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
       let groupId = studentToGroup.get(String(studentId));
       
       // Fallback: If student has no current group (deleted?), use evaluation's historical group
-      if (!groupId || !groupStats[groupId]) {
+      if (!groupId) {
           groupId = evaluation.groupId;
       }
+      
+      // Normalize to string
+      const gId = groupId ? String(groupId) : null;
 
-      if (!groupId || !groupStats[groupId]) return;
+      if (!gId || !groupStats[gId]) return;
 
-      if (!evalGroupAgg[groupId]) {
-        evalGroupAgg[groupId] = {
+      if (!evalGroupAgg[gId]) {
+        evalGroupAgg[gId] = {
           totalScore: 0,
           studentCount: 0,
           studentIds: new Set()
@@ -1702,15 +1757,15 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
       }
 
       const score = parseFloat(scoreData.totalScore) || 0;
-      evalGroupAgg[groupId].totalScore += score;
-      evalGroupAgg[groupId].studentCount++;
-      evalGroupAgg[groupId].studentIds.add(studentId);
+      evalGroupAgg[gId].totalScore += score;
+      evalGroupAgg[gId].studentCount++;
+      evalGroupAgg[gId].studentIds.add(studentId);
 
       // Global Group Stats Update
-      groupStats[groupId].totalScoreSum += score;
-      groupStats[groupId].totalMaxScoreSum += maxScorePerStudent; // Add max score for this student entry
-      groupStats[groupId].evaluatedMemberIds.add(studentId);
-      groupStats[groupId].taskIds.add(taskId);
+      groupStats[gId].totalScoreSum += score;
+      groupStats[gId].totalMaxScoreSum += maxScorePerStudent; // Add max score for this student entry
+      groupStats[gId].evaluatedMemberIds.add(studentId);
+      groupStats[gId].taskIds.add(taskId);
     });
 
     // Update "Per Evaluation" stats (like latest eval meta) for each group involved
@@ -1739,7 +1794,12 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
     });
   });
 
-  return Object.values(groupStats)
+  // --- DEBUG LOGGING ---
+  // ---------------------
+
+
+
+  const result = Object.values(groupStats)
     .map((stats) => {
       // Weighted Average Calculation
       const averageScore = stats.totalMaxScoreSum > 0 ? (stats.totalScoreSum / stats.totalMaxScoreSum) * 100 : 0;
@@ -1755,7 +1815,9 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
         studentCount: stats.studentCount,
         averageScore: averageScore,
         evalCount: stats.validEvalsCount,
+        evalCount: stats.validEvalsCount,
         evaluatedMembers,
+        evaluatedMemberIds: stats.evaluatedMemberIds,
         taskCount,
         participationRate,
         latestAverageScore: stats.latestEvalMeta.avgPct,
@@ -1764,6 +1826,8 @@ function _calculateGroupPerformance(groups, students, evaluations, tasks) {
       };
     })
     .sort((a, b) => b.averageScore - a.averageScore);
+
+  return result;
 }
 
 function _calculateLeaderboardRankingMeta(groups = [], students = [], evaluations = []) {
@@ -2156,12 +2220,14 @@ function _getRelativeDayLabel(timestamp) {
   return diffDays > 0 ? `${formatted} দিন বাকি` : `${formatted} দিন আগে`;
 }
 
-function _calculateAcademicGroupStats(students, groupPerformanceData) {
+function _calculateAcademicGroupStats(students, perfDataWrapper) {
+  const perfData = perfDataWrapper ? perfDataWrapper.data : [];
+
   const stats = {};
   const studentMap = new Map(students.map(s => [String(s.id), s]));
 
   // Iterate over groups that have performance data (and thus evaluations)
-  groupPerformanceData.forEach(groupData => {
+  perfData.forEach(groupData => {
       const groupId = groupData.group.id;
       const avgScore = groupData.averageScore;
       
@@ -2185,16 +2251,18 @@ function _calculateAcademicGroupStats(students, groupPerformanceData) {
           }
 
           // Count student if not already counted for this AG
-          if (!stats[ag].processedStudents.has(studentId)) {
+          if (!stats[ag].processedStudents.has(String(studentId))) {
               stats[ag].totalStudents++;
-              stats[ag].processedStudents.add(studentId);
+              stats[ag].processedStudents.add(String(studentId));
           }
 
           // Count group if not already counted for this AG
-          if (!stats[ag].processedGroups.has(groupId)) {
+          // Ensure group ID is string
+          const gId = String(groupId);
+          if (!stats[ag].processedGroups.has(gId)) {
               stats[ag].scoreSum += avgScore;
               stats[ag].groupCount++;
-              stats[ag].processedGroups.add(groupId);
+              stats[ag].processedGroups.add(gId);
           }
       });
   });
@@ -2606,9 +2674,11 @@ function _renderTopGroups(groupData) {
 function _renderAcademicGroups(academicStats) {
   if (!elements.academicGroupStatsList) return;
   uiManager.clearContainer(elements.academicGroupStatsList);
+
   const sortedAG = Object.entries(academicStats)
     .filter(([, data]) => data.groupCount > 0)
     .sort(([, a], [, b]) => b.averageScore - a.averageScore);
+  
   if (sortedAG.length === 0) {
     uiManager.displayEmptyMessage(elements.academicGroupStatsList, 'একাডেমিক গ্রুপের তথ্য নেই।');
     return;
@@ -2691,8 +2761,9 @@ function _buildRankCard(data, rank, subjectName = '') {
   // Subject Badge HTML
   let subjectBadge = '';
   if (subjectName) {
+      const subjectColor = _getSubjectColor(subjectName);
       subjectBadge = `
-        <span class="inline-flex items-center justify-center rounded-lg bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800 ml-2">
+        <span class="inline-flex items-center justify-center rounded-lg px-2 py-1 text-[10px] font-bold border ml-2 ${subjectColor}">
           ${subjectName}
         </span>
       `;
