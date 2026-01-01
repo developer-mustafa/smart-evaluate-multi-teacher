@@ -2893,20 +2893,20 @@ function _setupDashboardFilters() {
     if (contextFiltersWrapper) contextFiltersWrapper.classList.remove('hidden');
     if (topNavFilters) topNavFilters.classList.remove('hidden');
 
-    // Teacher Info Card logic (Teachers & Admins)
-    if (isTeacher || isAdmin) {
+    // Teacher Info Card logic (Restricted to Teachers ONLY)
+    if (isTeacher) {
             if (teacherInfoContainer) teacherInfoContainer.classList.remove('hidden'); // Show Row 2
             if (teacherInfoCard) teacherInfoCard.classList.remove('hidden');
             
             const displayName = currentTeacher?.name || user?.name || user?.email?.split('@')[0] || 'ব্যবহারকারী';
-            const userLabel = isTeacher ? 'লগইনকৃত শিক্ষক' : 'লগইনকৃত অ্যাডমিন';
             
             // Update Icon and Label
             const iconContainer = teacherInfoCard.querySelector('.rounded-full');
             const icon = teacherInfoCard.querySelector('i');
             const labelSpan = teacherInfoCard.querySelector('span.text-xs'); // "লগইনকৃত শিক্ষক" label
 
-            if (labelSpan) labelSpan.textContent = userLabel;
+            // Reset label to default just in case
+            if (labelSpan) labelSpan.textContent = 'লগইনকৃত শিক্ষক';
             
             if (teacherNameDisplay) teacherNameDisplay.textContent = displayName;
 
