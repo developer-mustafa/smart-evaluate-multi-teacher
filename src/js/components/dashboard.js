@@ -452,12 +452,12 @@ function _getDashboardHTMLStructure() {
                     <!-- Assignment Filter -->
                     <div class="relative flex-1 min-w-[140px]">
                         <select id="dashboardAssignmentFilter" 
-                          class="w-full appearance-none bg-indigo-50 dark:bg-indigo-950 border border-indigo-100 dark:border-indigo-800 
-                          text-indigo-700 dark:text-indigo-200 text-xs font-semibold rounded-lg py-2 pl-3 pr-8 
-                          focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:bg-indigo-100 dark:hover:bg-indigo-900">
+                          class="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 
+                          text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg py-2 pl-3 pr-8 
+                          focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all hover:border-indigo-300 dark:hover:border-indigo-600">
                           <option value="latest">সর্বশেষ এসাইনমেন্ট</option>
                         </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-indigo-400 dark:text-indigo-300">
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
                           <i class="fas fa-chevron-down text-[10px]"></i>
                         </div>
                     </div>
