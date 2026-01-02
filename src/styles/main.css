@@ -361,15 +361,28 @@ details[open] .prereq-summary-icon {
   color: #2563eb; /* Blue-600 */
   font-weight: 600; /* Semibold */
 }
+/* Dark Mode Navigation Button Styles */
 .dark .active-nav-btn {
-  background-color: rgba(96, 165, 250, 0.2); /* Darker blue background */
-  color: #93c5fd; /* Blue-300 */
+  background-color: rgba(37, 99, 235, 0.3) !important; /* Blue-600 with 30% opacity */
+  color: #ffffff !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .active-nav-btn i {
-  color: #2563eb; /* Blue-600 */
+  color: #2563eb;
 }
 .dark .active-nav-btn i {
-  color: #93c5fd; /* Blue-300 */
+  color: #ffffff !important;
+}
+
+/* Hover state for dark mode - Ensure visibility */
+.dark .nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important; /* Consistent dark mode hover */
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.dark .nav-btn:hover i {
+  color: #ffffff !important;
 }
 
 /* Disabled Navigation Button Style */

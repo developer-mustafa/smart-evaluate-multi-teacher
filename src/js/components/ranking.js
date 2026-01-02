@@ -25,7 +25,9 @@ const cachedRankingData = {
 const filterState = {
   classId: '',
   sectionId: '',
+  sectionId: '',
   subjectId: '',
+  taskId: '',
 };
 
 // Ranking criteria
@@ -392,13 +394,20 @@ export function render() {
     cachedRankingData.sections = sections || [];
     
     // Re-cache filter elements if missing (in case of dynamic updates)
-    if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter) {
+    if (!elements.classFilter || !elements.sectionFilter || !elements.subjectFilter || !elements.taskFilter) {
         elements.classFilter = elements.page.querySelector('#rankingClassFilter');
         elements.sectionFilter = elements.page.querySelector('#rankingSectionFilter');
         elements.subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
+        elements.taskFilter = elements.page.querySelector('#rankingTaskFilter');
     }
 
     // Default Subject Selection (if none selected)
+    // REMOVED: User wants "All Subjects" by default for everyone, including Admins.
+    // Teachers might still want to see their assigned subjects, but they can select it.
+    // If we want to enforce teachers to only see their subjects, the filter list is already restricted.
+    // So defaulting to "" (All) is fine, it will just show all their assigned subjects.
+    
+    /*
     if (!filterState.subjectId) {
         if (user && user.type === 'teacher') {
             // Priority: assignedSubjectId -> first of assignedSubjects -> first of available subjects
@@ -416,6 +425,7 @@ export function render() {
             }
         }
     }
+    */
 
     // Populate filters (will use filterState)
     _populateFilters();
@@ -472,6 +482,7 @@ function _cacheDOMElements() {
     elements.classFilter = elements.page.querySelector('#rankingClassFilter');
     elements.sectionFilter = elements.page.querySelector('#rankingSectionFilter');
     elements.subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
+    elements.taskFilter = elements.page.querySelector('#rankingTaskFilter');
   } else {
     console.error('❌ Ranking init failed: #page-student-ranking element not found!');
   }
@@ -491,18 +502,30 @@ function _setupEventListeners() {
 
   // Filter Change Listeners (Delegation)
   uiManager.addListener(elements.page, 'change', (e) => {
-      if (e.target.id === 'rankingClassFilter' || 
-          e.target.id === 'rankingSectionFilter' || 
-          e.target.id === 'rankingSubjectFilter') {
+      const targetId = e.target.id;
+      if (targetId === 'rankingClassFilter' || 
+          targetId === 'rankingSectionFilter' || 
+          targetId === 'rankingSubjectFilter' ||
+          targetId === 'rankingTaskFilter') {
           
-          // Re-query elements to be safe
-          const classFilter = elements.page.querySelector('#rankingClassFilter');
-          const sectionFilter = elements.page.querySelector('#rankingSectionFilter');
-          const subjectFilter = elements.page.querySelector('#rankingSubjectFilter');
-
-          filterState.classId = classFilter?.value || '';
-          filterState.sectionId = sectionFilter?.value || '';
-          filterState.subjectId = subjectFilter?.value || '';
+          // Update State based on what changed
+          if (targetId === 'rankingClassFilter') {
+              filterState.classId = e.target.value === 'all' ? '' : e.target.value;
+              // Reset children
+              filterState.sectionId = ''; 
+              filterState.subjectId = ''; 
+              filterState.taskId = '';    
+          } else if (targetId === 'rankingSectionFilter') {
+              filterState.sectionId = e.target.value === 'all' ? '' : e.target.value;
+              // Reset task, keep subject
+              filterState.taskId = '';    
+          } else if (targetId === 'rankingSubjectFilter') {
+              filterState.subjectId = e.target.value === 'all' ? '' : e.target.value;
+              // Reset task
+              filterState.taskId = '';    
+          } else if (targetId === 'rankingTaskFilter') {
+              filterState.taskId = e.target.value === 'all' ? '' : e.target.value;
+          }
           
           _rerenderRankingWithFilters();
       }
@@ -665,7 +688,7 @@ function _calculateGroupRankings(students, evaluations, groups) {
 function _populateFilters() {
     if (elements.classFilter && cachedRankingData.classes) {
         uiManager.populateSelect(elements.classFilter, cachedRankingData.classes.map(c => ({ value: c.id, text: c.name })), 'সকল ক্লাস');
-        elements.classFilter.value = filterState.classId;
+        elements.classFilter.value = filterState.classId || 'all';
         
         // If teacher has assigned class, disable filter or just keep it selected?
         // User request: "Teacher automatically sees...". Doesn't explicitly say disable.
@@ -694,7 +717,7 @@ function _populateFilters() {
             }
         });
         uiManager.populateSelect(elements.sectionFilter, uniqueSections.map(s => ({ value: s.id, text: s.name })), 'সকল শাখা');
-        elements.sectionFilter.value = filterState.sectionId;
+        elements.sectionFilter.value = filterState.sectionId || 'all';
     }
 
     if (elements.subjectFilter && cachedRankingData.subjects) {
@@ -709,7 +732,41 @@ function _populateFilters() {
             }
         });
         uiManager.populateSelect(elements.subjectFilter, uniqueSubjects.map(s => ({ value: s.id, text: s.name })), 'সকল বিষয়');
-        elements.subjectFilter.value = filterState.subjectId;
+        elements.subjectFilter.value = filterState.subjectId || 'all';
+    }
+
+    if (elements.taskFilter && cachedRankingData.tasks) {
+        // Filter tasks based on current selection
+        let filteredTasks = cachedRankingData.tasks;
+
+        if (filterState.classId) {
+            filteredTasks = filteredTasks.filter(t => t.classId === filterState.classId);
+        }
+        if (filterState.sectionId) {
+            // Tasks might not have sectionId if they are for all sections, or specific section
+            filteredTasks = filteredTasks.filter(t => !t.sectionId || t.sectionId === filterState.sectionId);
+        }
+        if (filterState.subjectId) {
+            // Match subject ID or Name
+            const subjectId = filterState.subjectId;
+            const subject = cachedRankingData.subjects.find(s => s.id === subjectId);
+            const subjectName = subject?.name?.trim().toLowerCase();
+
+            filteredTasks = filteredTasks.filter(t => {
+                if (t.subjectId === subjectId) return true;
+                if (subjectName && t.subjectId) {
+                    const tSubject = cachedRankingData.subjects.find(s => s.id === t.subjectId);
+                    if (tSubject && tSubject.name?.trim().toLowerCase() === subjectName) return true;
+                }
+                return false;
+            });
+        }
+
+        // Sort by date desc
+        filteredTasks.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        uiManager.populateSelect(elements.taskFilter, filteredTasks.map(t => ({ value: t.id, text: t.name })), 'সকল এসাইনমেন্ট');
+        elements.taskFilter.value = filterState.taskId || 'all';
     }
 }
 
@@ -794,12 +851,20 @@ function _applyFiltersToEvaluations(evaluations, tasks, students) {
         });
     }
     
+    // 3. Filter by Task (Directly)
+    if (filterState.taskId) {
+        filtered = filtered.filter(e => e.taskId === filterState.taskId);
+    }
+    
     return filtered;
 }
 
 function _rerenderRankingWithFilters() {
     uiManager.showLoading('র‍্যাঙ্কিং আপডেট করা হচ্ছে...');
     setTimeout(() => {
+        // Re-populate filters to update dependent dropdowns (like Task)
+        _populateFilters();
+
         const filteredEvaluations = _applyFiltersToEvaluations(cachedRankingData.evaluations || [], cachedRankingData.tasks || [], cachedRankingData.students || []);
         
         // Also filter students if Class/Section selected (for Student Ranking)

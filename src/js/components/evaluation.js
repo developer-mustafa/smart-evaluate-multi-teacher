@@ -1408,10 +1408,10 @@ function _handleDeleteEvaluation(evaluationId) {
 function _renderDashboardConfig() {
   if (!elements.dashboardConfigContainer) return;
   
-  // Permission check: Only admins should see this
-  const canEdit = permissionHelper?.canEdit();
+  // Permission check: Only super admins should see this
+  const isSuperAdmin = permissionHelper?.isSuperAdmin();
   
-  if (!canEdit) {
+  if (!isSuperAdmin) {
       elements.dashboardConfigContainer.classList.add('hidden');
       return;
   }
