@@ -272,7 +272,7 @@ class AuthService {
         message = 'পাসওয়ার্ড দুর্বল (কমপক্ষে ৬ অক্ষর)।';
         break;
       case 'auth/too-many-requests':
-        message = 'অতিরিক্ত চেষ্টা, অ্যাকাউন্ট সাময়িকভাবে লক।';
+        message = 'অগ্রগতি চেষ্টা, অ্যাকাউন্ট সাময়িকভাবে লক।';
         break;
       case 'auth/network-request-failed':
         message = 'নেটওয়ার্ক সমস্যা। সংযোগ পরীক্ষা করুন।';

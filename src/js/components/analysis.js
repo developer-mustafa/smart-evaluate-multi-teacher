@@ -593,7 +593,7 @@ function _renderGroupMembersTable(members) {
       const hasEvaluations = member.evaluationCount > 0;
       const avgTask = hasEvaluations ? _formatDecimal(member.avgTaskScore) : '-';
       const avgTeam = hasEvaluations ? _formatDecimal(member.avgTeamScore) : '-';
-      const avgAdditional = hasEvaluations ? _formatDecimal(member.avgAdditionalScore) : '-';
+      const avgProgress = hasEvaluations ? _formatDecimal(member.avgProgressScore) : '-';
       const avgTotal = hasEvaluations ? _formatDecimal(member.avgTotalScore) : '-';
       const comment = member.latestComment ? _formatText(member.latestComment) : '-';
       const roleLabel = _formatRole(member.role);
@@ -616,7 +616,7 @@ function _renderGroupMembersTable(members) {
           <td class="px-4 py-3 text-gray-800 dark:text-gray-200">${member.academicGroup || '-'}</td>
           <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${avgTeam}</td>
           <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${avgTask}</td>
-          <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${avgAdditional}</td>
+          <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${avgProgress}</td>
           <td class="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">${comment}</td>
           <td class="px-4 py-3 text-center font-semibold text-indigo-700 dark:text-indigo-300">${avgTotal}</td>
         </tr>
@@ -638,7 +638,7 @@ function _renderGroupMembersTable(members) {
               <th class="px-4 py-3 text-left font-semibold uppercase text-gray-700 dark:text-gray-300">একাডেমিক গ্রুপ</th>
               <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">টিম স্কোর</th>
               <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">টাস্ক স্কোর</th>
-              <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">অতিরিক্ত স্কোর</th>
+              <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">অগ্রগতি স্কোর</th>
               <th class="px-4 py-3 text-left font-semibold uppercase text-gray-700 dark:text-gray-300">মন্তব্য</th>
               <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় মার্কস</th>
             </tr>
@@ -715,7 +715,7 @@ function _renderGroupEvaluationsTable(evaluations) {
             evaluation.avgTeamScore
           )}</td>
           <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${_formatDecimal(
-            evaluation.avgAdditionalScore
+            evaluation.avgProgressScore
           )}</td>
           <td class="px-4 py-3 text-center text-gray-900 dark:text-gray-100">${_formatDecimal(
             evaluation.avgTotalScore
@@ -738,7 +738,7 @@ function _renderGroupEvaluationsTable(evaluations) {
             <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">অংশগ্রহণ</th>
             <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় টাস্ক</th>
             <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় টিম</th>
-            <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় অতিরিক্ত</th>
+            <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় অগ্রগতি</th>
             <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় মোট</th>
             <th class="px-4 py-3 text-center font-semibold uppercase text-gray-700 dark:text-gray-300">গড় %</th>
           </tr>
@@ -769,7 +769,7 @@ function _renderSummaryEvaluationChart(evaluations) {
   const labels = evaluations.map((evaluation) => evaluation.taskName);
   const taskData = evaluations.map((evaluation) => evaluation.avgTaskScore || 0);
   const teamData = evaluations.map((evaluation) => evaluation.avgTeamScore || 0);
-  const additionalData = evaluations.map((evaluation) => evaluation.avgAdditionalScore || 0);
+  const ProgressData = evaluations.map((evaluation) => evaluation.avgProgressScore || 0);
   const totalData = evaluations.map((evaluation) => evaluation.avgTotalScore || 0);
   const theme = _getChartTheme();
 
@@ -780,7 +780,7 @@ function _renderSummaryEvaluationChart(evaluations) {
       datasets: [
         { label: 'টাস্ক', data: taskData, backgroundColor: 'rgba(99, 102, 241, 0.85)' },
         { label: 'টিম', data: teamData, backgroundColor: 'rgba(16, 185, 129, 0.85)' },
-        { label: 'অতিরিক্ত', data: additionalData, backgroundColor: 'rgba(251, 191, 36, 0.9)' },
+        { label: 'অগ্রগতি', data: ProgressData, backgroundColor: 'rgba(251, 191, 36, 0.9)' },
         { label: 'মোট', data: totalData, backgroundColor: 'rgba(59, 130, 246, 0.9)' },
       ],
     },
@@ -1161,7 +1161,7 @@ function _buildAnalysisData(filters) {
           // Start of inner try-catch for each student's score
           participants.add(studentId);
 
-          const criteria = scoreData?.additionalCriteria || {};
+          const criteria = scoreData?.ProgressCriteria || {};
           const topicChoice = criteria.topic || CRITERIA_MAPPING.topic.topic_none.id;
           const topicKey =
             topicChoice === CRITERIA_MAPPING.topic.topic_learned_well.id
@@ -1193,7 +1193,7 @@ function _buildAnalysisData(filters) {
           const percentage = maxScore > 0 ? (rawScore / maxScore) * 100 : 0;
           const taskScore = parseFloat(scoreData?.taskScore) || 0;
           const teamScore = parseFloat(scoreData?.teamScore) || 0;
-          const additionalScore = parseFloat(scoreData?.additionalScore) || 0;
+          const ProgressScore = parseFloat(scoreData?.ProgressScore) || 0;
           const mcqScore = parseFloat(scoreData?.mcqScore) || 0;
           const comments = typeof scoreData?.comments === 'string' ? scoreData.comments.trim() : '';
 
@@ -1208,7 +1208,7 @@ function _buildAnalysisData(filters) {
             homework,
             taskScore,
             teamScore,
-            additionalScore,
+            ProgressScore,
             mcqScore,
             totalScore: rawScore,
             maxScore,
@@ -1279,7 +1279,7 @@ function _buildAnalysisData(filters) {
         academicGroup: _formatText(student.academicGroup || ''),
         avgTaskScore: 0,
         avgTeamScore: 0,
-        avgAdditionalScore: 0,
+        avgProgressScore: 0,
         avgMcqScore: 0,
         avgTotalScore: 0,
         totalScore: 0,
@@ -1392,7 +1392,7 @@ function _buildAnalysisData(filters) {
         academicGroup: _formatText(student.academicGroup || ''),
         totalTaskScore: 0,
         totalTeamScore: 0,
-        totalAdditionalScore: 0,
+        totalProgressScore: 0,
         totalMcqScore: 0,
         totalScore: 0,
         evaluationCount: 0,
@@ -1416,7 +1416,7 @@ function _buildAnalysisData(filters) {
             academicGroup: _formatText(studentInfo.academicGroup || ''),
             totalTaskScore: 0,
             totalTeamScore: 0,
-            totalAdditionalScore: 0,
+            totalProgressScore: 0,
             totalMcqScore: 0,
             totalScore: 0,
             evaluationCount: 0,
@@ -1428,7 +1428,7 @@ function _buildAnalysisData(filters) {
         const aggregate = memberAggregates.get(studentId);
         aggregate.totalTaskScore += record.taskScore || 0;
         aggregate.totalTeamScore += record.teamScore || 0;
-        aggregate.totalAdditionalScore += record.additionalScore || 0;
+        aggregate.totalProgressScore += record.ProgressScore || 0;
         aggregate.totalMcqScore += record.mcqScore || 0;
         aggregate.totalScore += record.totalScore || 0;
         aggregate.evaluationCount += 1;
@@ -1456,7 +1456,7 @@ function _buildAnalysisData(filters) {
           academicGroup: aggregate.academicGroup,
           avgTaskScore: evaluationCountSafe ? aggregate.totalTaskScore / divisor : 0,
           avgTeamScore: evaluationCountSafe ? aggregate.totalTeamScore / divisor : 0,
-          avgAdditionalScore: evaluationCountSafe ? aggregate.totalAdditionalScore / divisor : 0,
+          avgProgressScore: evaluationCountSafe ? aggregate.totalProgressScore / divisor : 0,
           avgMcqScore: evaluationCountSafe ? aggregate.totalMcqScore / divisor : 0,
           avgTotalScore: evaluationCountSafe ? aggregate.totalScore / divisor : 0,
           totalScore: aggregate.totalScore,
@@ -1479,12 +1479,12 @@ function _buildAnalysisData(filters) {
           (acc, record) => {
             acc.task += record.taskScore || 0;
             acc.team += record.teamScore || 0;
-            acc.additional += record.additionalScore || 0;
+            acc.Progress += record.ProgressScore || 0;
             acc.mcq += record.mcqScore || 0;
             acc.total += record.totalScore || 0;
             return acc;
           },
-          { task: 0, team: 0, additional: 0, mcq: 0, total: 0 }
+          { task: 0, team: 0, Progress: 0, mcq: 0, total: 0 }
         );
         const divisor = participantCount || 1;
 
@@ -1498,7 +1498,7 @@ function _buildAnalysisData(filters) {
           averagePercentage: detail.averagePercentage,
           avgTaskScore: participantCount ? totals.task / divisor : 0,
           avgTeamScore: participantCount ? totals.team / divisor : 0,
-          avgAdditionalScore: participantCount ? totals.additional / divisor : 0,
+          avgProgressScore: participantCount ? totals.Progress / divisor : 0,
           avgMcqScore: participantCount ? totals.mcq / divisor : 0,
           avgTotalScore: participantCount ? totals.total / divisor : 0,
         };
@@ -1730,7 +1730,7 @@ function _buildChartData(groupMetrics, filters) {
 }
 
 /**
- * Builds the context object for "Additional Criteria" analysis.
+ * Builds the context object for "Progress Criteria" analysis.
  * @param {Array} groupMetrics - Array of metrics for groups in view.
  * @param {Map} studentMap - Map of all students.
  * @param {Map} groupMap - Map of all groups.
@@ -1994,7 +1994,7 @@ function _renderCriteriaOverview(criteriaContext, filters, visibleBuckets) {
   return `
     <div class="card bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700">
       <div class="card-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-50">অতিরিক্ত মানদণ্ড বিশ্লেষণ</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-50">অগ্রগতি মানদণ্ড বিশ্লেষণ</h3>
         <span class="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">${viewLabel}</span>
       </div>
       <div class="card-body">
@@ -2703,7 +2703,7 @@ function _deriveMaxScoreFromTask(task) {
     return (
       (parseFloat(breakdown.task) || 0) +
       (parseFloat(breakdown.team) || 0) +
-      (parseFloat(breakdown.additional) || 0) +
+      (parseFloat(breakdown.Progress) || 0) +
       (parseFloat(breakdown.mcq) || 0)
     );
   }

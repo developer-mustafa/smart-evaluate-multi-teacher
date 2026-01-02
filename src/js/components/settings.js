@@ -397,7 +397,26 @@ async function _loadSettings() {
       if (globalSettings.dashboardSections) {
         _settings.dashboardSections = { ..._settings.dashboardSections, ...globalSettings.dashboardSections };
       }
+      
+      // Merge Global Sidebar Settings
+      if (globalSettings.sidebar) {
+        Object.keys(globalSettings.sidebar).forEach(key => {
+          if (_settings.sidebar[key]) {
+            // Merge properties, allowing global to override local for critical settings
+            _settings.sidebar[key] = { 
+              ..._settings.sidebar[key], 
+              ...globalSettings.sidebar[key] 
+            };
+          } else {
+             // If new item in global, add it
+             _settings.sidebar[key] = globalSettings.sidebar[key];
+          }
+        });
+        console.log('🌍 Global sidebar settings loaded');
+      }
+
       // Only apply global theme if NO local theme is set (Local overrides Global)
+      // OR if the user is forcing a global theme update (optional logic, but sticking to standard for now)
       if (globalSettings.theme && !JSON.parse(saved || '{}').theme) {
         _settings.theme = globalSettings.theme;
         console.log('🌍 Global theme loaded:', globalSettings.theme);
@@ -426,7 +445,8 @@ async function _saveSettings(saveGlobalTheme = false) {
   if (stateManager.get('currentUserData')?.type === 'super-admin' || stateManager.get('currentUserData')?.type === 'admin') {
     try {
       const globalData = {
-        dashboardSections: _settings.dashboardSections
+        dashboardSections: _settings.dashboardSections,
+        sidebar: _settings.sidebar // Save sidebar settings globally
       };
       
       if (saveGlobalTheme) {

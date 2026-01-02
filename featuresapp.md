@@ -42,7 +42,7 @@ The dashboard serves as the central hub, providing a high-level overview of the 
 -   **Task Creation**: Create new assignments with specific details:
     -   **Name & Description**: Title and details of the task.
     -   **Date & Time**: Deadline or event time.
-    -   **Score Breakdown**: Define max scores for Task, Team, Additional, and MCQ components.
+    -   **Score Breakdown**: Define max scores for Task, Team, Progress, and MCQ components.
 -   **Status Management**: Tasks have statuses like "Upcoming", "Ongoing", and "Completed", which can be manually updated or derived from the date.
 -   **Validation**: Ensures total max score matches the sum of its components.
 
@@ -53,7 +53,7 @@ The core feature for grading students based on tasks.
     -   **Task Score**: Individual performance.
     -   **Team Score**: Group contribution.
     -   **MCQ Score**: Multiple-choice question performance.
-    -   **Additional Criteria**: Bonus/Penalty points for "Topic Understanding" (e.g., "Learned Well", "Understood", "None") and "Options" (Homework, Attendance).
+    -   **Progress Criteria**: Bonus/Penalty points for "Topic Understanding" (e.g., "Learned Well", "Understood", "None") and "Options" (Homework, Attendance).
 -   **Problem Recovered**: A checkbox to indicate if a student recovered from a "Problematic" status (e.g., initially didn't understand the topic).
 -   **Role Badges**: Visual indicators for student roles (Team Leader, Time Keeper, etc.) within the evaluation form.
 -   **Real-time Calculation**: Automatically calculates total scores and group averages as data is entered.
@@ -155,7 +155,7 @@ The core feature for grading students based on tasks.
   "maxScoreBreakdown": {
     "task": number,
     "team": number,
-    "additional": number,
+    "Progress": number,
     "mcq": number
   }
 }
@@ -172,11 +172,11 @@ The core feature for grading students based on tasks.
       "taskScore": number,
       "teamScore": number,
       "mcqScore": number,
-      "additionalScore": number,
+      "ProgressScore": number,
       "totalScore": number,
       "comments": "string",
       "problemRecovered": boolean,
-      "additionalCriteria": {
+      "ProgressCriteria": {
         "topic": "string", // topic_learned_well, etc.
         "homework": boolean,
         "attendance": boolean

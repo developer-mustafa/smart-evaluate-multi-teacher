@@ -168,7 +168,7 @@
                       <th class="px-3 py-2">Name</th>
                       <th class="px-3 py-2">Task</th>
                       <th class="px-3 py-2">Team</th>
-                      <th class="px-3 py-2">Additional</th>
+                      <th class="px-3 py-2">Progress</th>
                       <th class="px-3 py-2">MCQ</th>
                       <th class="px-3 py-2">Total</th>
                       <th class="px-3 py-2">%</th>
@@ -912,9 +912,9 @@
                       />
                     </div>
                     <div>
-                      <label for="maxAdditionalScoreInput" class="label text-xs">অতিরিক্ত</label>
+                      <label for="maxProgressScoreInput" class="label text-xs">অগ্রগতি</label>
                       <input
-                        id="maxAdditionalScoreInput"
+                        id="maxProgressScoreInput"
                         type="number"
                         min="0"
                         value="25"
@@ -1587,7 +1587,7 @@
                   <th class="px-3 py-2 text-left">শিরোনাম</th>
                   <th class="px-3 py-2 text-left">টাস্ক</th>
                   <th class="px-3 py-2 text-left">টিম</th>
-                  <th class="px-3 py-2 text-left">অতিরিক্ত</th>
+                  <th class="px-3 py-2 text-left">অগ্রগতি</th>
                   <th class="px-3 py-2 text-left">MCQ</th>
                   <th class="px-3 py-2 text-left">মোট</th>
                   <th class="px-3 py-2 text-left">%</th>

@@ -10,7 +10,7 @@ const elements = {};
 const DEFAULT_SCORE_BREAKDOWN = {
   task: 20,
   team: 15,
-  additional: 25,
+  Progress: 25,
   mcq: 40,
 };
 const DEFAULT_TOTAL_SCORE = 100; // 20 + 15 + 25 + 40
@@ -209,7 +209,7 @@ function _cacheDOMElements() {
   // Score Breakdown Inputs
   elements.maxTaskScoreInput = elements.page.querySelector('#maxTaskScoreInput');
   elements.maxTeamScoreInput = elements.page.querySelector('#maxTeamScoreInput');
-  elements.maxAdditionalScoreInput = elements.page.querySelector('#maxAdditionalScoreInput');
+  elements.maxProgressScoreInput = elements.page.querySelector('#maxProgressScoreInput');
   elements.maxMcqScoreInput = elements.page.querySelector('#maxMcqScoreInput');
   elements.totalMaxScoreDisplay = elements.page.querySelector('#totalMaxScoreDisplay');
 
@@ -416,7 +416,7 @@ function _setupEventListeners() {
   const breakdownInputs = [
     elements.maxTaskScoreInput,
     elements.maxTeamScoreInput,
-    elements.maxAdditionalScoreInput,
+    elements.maxProgressScoreInput,
     elements.maxMcqScoreInput,
   ];
   breakdownInputs.forEach((input) => {
@@ -547,9 +547,9 @@ function _getTaskTimeValue(task) {
 function _updateTotalMaxScoreDisplay(formPrefix = '') {
   const taskScore = parseFloat(document.getElementById(`${formPrefix}maxTaskScoreInput`)?.value) || 0;
   const teamScore = parseFloat(document.getElementById(`${formPrefix}maxTeamScoreInput`)?.value) || 0;
-  const additionalScore = parseFloat(document.getElementById(`${formPrefix}maxAdditionalScoreInput`)?.value) || 0;
+  const ProgressScore = parseFloat(document.getElementById(`${formPrefix}maxProgressScoreInput`)?.value) || 0;
   const mcqScore = parseFloat(document.getElementById(`${formPrefix}maxMcqScoreInput`)?.value) || 0;
-  const total = taskScore + teamScore + additionalScore + mcqScore;
+  const total = taskScore + teamScore + ProgressScore + mcqScore;
 
   const displayElement = document.getElementById(`${formPrefix}totalMaxScoreDisplay`);
   if (displayElement) {
@@ -562,13 +562,13 @@ function _updateTotalMaxScoreDisplay(formPrefix = '') {
 function _setBreakdownInputs(scores, formPrefix = '') {
   const taskInput = document.getElementById(`${formPrefix}maxTaskScoreInput`);
   const teamInput = document.getElementById(`${formPrefix}maxTeamScoreInput`);
-  const addInput = document.getElementById(`${formPrefix}maxAdditionalScoreInput`);
+  const addInput = document.getElementById(`${formPrefix}maxProgressScoreInput`);
   const mcqInput = document.getElementById(`${formPrefix}maxMcqScoreInput`);
 
   // Use provided scores or fall back to defaults
   if (taskInput) taskInput.value = scores?.task ?? DEFAULT_SCORE_BREAKDOWN.task;
   if (teamInput) teamInput.value = scores?.team ?? DEFAULT_SCORE_BREAKDOWN.team;
-  if (addInput) addInput.value = scores?.additional ?? DEFAULT_SCORE_BREAKDOWN.additional;
+  if (addInput) addInput.value = scores?.Progress ?? DEFAULT_SCORE_BREAKDOWN.Progress;
   if (mcqInput) mcqInput.value = scores?.mcq ?? DEFAULT_SCORE_BREAKDOWN.mcq;
 
   _updateTotalMaxScoreDisplay(formPrefix);
@@ -600,7 +600,7 @@ function _renderTasksList(tasks) {
       const totalMaxScore = task.maxScoreBreakdown
         ? (parseFloat(task.maxScoreBreakdown.task) || 0) +
           (parseFloat(task.maxScoreBreakdown.team) || 0) +
-          (parseFloat(task.maxScoreBreakdown.additional) || 0) +
+          (parseFloat(task.maxScoreBreakdown.Progress) || 0) +
           (parseFloat(task.maxScoreBreakdown.mcq) || 0)
         : parseFloat(task.maxScore) || DEFAULT_TOTAL_SCORE;
 
@@ -613,7 +613,7 @@ function _renderTasksList(tasks) {
       const breakdownTitle =
         `ব্রেকডাউন: টাস্ক-${helpers.convertToBanglaNumber(breakdown.task ?? 'N/A')}, ` +
         `টিম-${helpers.convertToBanglaNumber(breakdown.team ?? 'N/A')}, ` +
-        `অতিরিক্ত-${helpers.convertToBanglaNumber(breakdown.additional ?? 'N/A')}, ` +
+        `অগ্রগতি-${helpers.convertToBanglaNumber(breakdown.Progress ?? 'N/A')}, ` +
         `MCQ-${helpers.convertToBanglaNumber(breakdown.mcq ?? 'N/A')}`;
 
       const statusValue = _getTaskStatus(task);
@@ -705,10 +705,10 @@ async function _handleAddTask() {
   const maxScores = {
     task: parseFloat(elements.maxTaskScoreInput?.value) || 0,
     team: parseFloat(elements.maxTeamScoreInput?.value) || 0,
-    additional: parseFloat(elements.maxAdditionalScoreInput?.value) || 0,
+    Progress: parseFloat(elements.maxProgressScoreInput?.value) || 0,
     mcq: parseFloat(elements.maxMcqScoreInput?.value) || 0,
   };
-  const totalMaxScore = maxScores.task + maxScores.team + maxScores.additional + maxScores.mcq;
+  const totalMaxScore = maxScores.task + maxScores.team + maxScores.Progress + maxScores.mcq;
 
   if (!title) {
     uiManager.showToast('টাস্কের নাম আবশ্যক।', 'warning');
@@ -838,7 +838,7 @@ function _handleEditTask(taskId) {
   const currentTotal = task.maxScoreBreakdown
     ? (parseFloat(currentBreakdown.task) || 0) +
       (parseFloat(currentBreakdown.team) || 0) +
-      (parseFloat(currentBreakdown.additional) || 0) +
+      (parseFloat(currentBreakdown.Progress) || 0) +
       (parseFloat(currentBreakdown.mcq) || 0)
     : task.maxScore || DEFAULT_TOTAL_SCORE;
   const dateValue = _getComparableDateString(task.date) || '';
@@ -866,8 +866,8 @@ function _handleEditTask(taskId) {
                     <div><label for="editmaxTeamScoreInput" class="label text-xs">টিম</label><input id="editmaxTeamScoreInput" type="number" min="0" step="any" value="${
                       currentBreakdown.team ?? 0
                     }" class="form-input breakdown-input"></div>
-                    <div><label for="editmaxAdditionalScoreInput" class="label text-xs">অতিরিক্ত</label><input id="editmaxAdditionalScoreInput" type="number" min="0" step="any" value="${
-                      currentBreakdown.additional ?? 0
+                    <div><label for="editmaxProgressScoreInput" class="label text-xs">অগ্রগতি</label><input id="editmaxProgressScoreInput" type="number" min="0" step="any" value="${
+                      currentBreakdown.Progress ?? 0
                     }" class="form-input breakdown-input"></div>
                     <div><label for="editmaxMcqScoreInput" class="label text-xs">MCQ</label><input id="editmaxMcqScoreInput" type="number" min="0" step="any" value="${
                       currentBreakdown.mcq ?? 0
@@ -905,11 +905,11 @@ function _handleEditTask(taskId) {
     const updatedMaxScores = {
       task: parseFloat(document.getElementById('editmaxTaskScoreInput')?.value) || 0,
       team: parseFloat(document.getElementById('editmaxTeamScoreInput')?.value) || 0,
-      additional: parseFloat(document.getElementById('editmaxAdditionalScoreInput')?.value) || 0,
+      Progress: parseFloat(document.getElementById('editmaxProgressScoreInput')?.value) || 0,
       mcq: parseFloat(document.getElementById('editmaxMcqScoreInput')?.value) || 0,
     };
     const updatedTotalMaxScore =
-      updatedMaxScores.task + updatedMaxScores.team + updatedMaxScores.additional + updatedMaxScores.mcq;
+      updatedMaxScores.task + updatedMaxScores.team + updatedMaxScores.Progress + updatedMaxScores.mcq;
 
     if (
       !updatedName ||

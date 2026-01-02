@@ -26,8 +26,8 @@
 
     <!-- Google API scripts are loaded dynamically in export.js -->
 
-    <script type="module" crossorigin src="/assets/index-BAl5iwb1.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-GiQF8pCM.css">
+    <script type="module" crossorigin src="/assets/index-B7wD6HwT.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CpjZty4L.css">
   </head>
 
   <body
@@ -151,7 +151,7 @@
                   </h4>
                 </div>
                 <div class="flex items-center justify-start md:justify-end gap-3">
-                  <label for="gdmAssignSelect" class="text-xs text-gray-500">Assignment</label>
+                  <label for="gdmAssignSelect" class="text-xs text-gray-500 dark:text-gray-400">Assignment</label>
                   <select
                     id="gdmAssignSelect"
                     class="text-sm border rounded px-2 py-1 dark:bg-gray-800 dark:border-gray-700"
@@ -170,11 +170,12 @@
                       <th class="px-3 py-2">Name</th>
                       <th class="px-3 py-2">Task</th>
                       <th class="px-3 py-2">Team</th>
-                      <th class="px-3 py-2">Additional</th>
+                      <th class="px-3 py-2">Progress</th>
                       <th class="px-3 py-2">MCQ</th>
                       <th class="px-3 py-2">Total</th>
                       <th class="px-3 py-2">%</th>
-                      <th class="px-3 py-2">Comments</th>
+                      <th class="px-3 py-2 text-center whitespace-nowrap">অবস্থা</th>
+                      <th class="px-3 py-2">পাঠদান-মন্তব্য</th>
                     </tr>
                   </thead>
                   <tbody id="gdmAssignBody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
@@ -232,7 +233,33 @@
         </h1>
       </div>
 
-      <div class="flex items-center space-x-2 sm:space-x-3 md:space-x-4 flex-nowrap">
+      <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+        <!-- Desktop Context Info & Filters (Hidden on Mobile) -->
+        <div id="topNavContextContainer" class="hidden md:flex items-center gap-4 mr-4">
+            <!-- Teacher Info -->
+            <div id="topNavTeacherInfo" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50">
+                <i class="fas fa-chalkboard-teacher text-indigo-600 dark:text-indigo-400 text-xs"></i>
+                <div class="text-xs font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-1">
+                    <span id="topNavTeacherName">শিক্ষক</span>
+                    <span class="text-indigo-300 dark:text-indigo-400">|</span>
+                    <span id="topNavContextDetails" class="text-indigo-700 dark:text-indigo-300"></span>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div id="topNavFilters" class="hidden flex items-center gap-2">
+                <select id="topNavClassFilter" class="appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-md py-1.5 px-2.5 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <option value="">সকল ক্লাস</option>
+                </select>
+                <select id="topNavSectionFilter" class="appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-md py-1.5 px-2.5 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <option value="">সকল শাখা</option>
+                </select>
+                <select id="topNavSubjectFilter" class="appearance-none bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-md py-1.5 px-2.5 pr-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <option value="">সকল বিষয়</option>
+                </select>
+            </div>
+        </div>
+
         <button
           id="openProfileModal"
           aria-label="Show developer profile"
@@ -281,7 +308,7 @@
         <nav class="space-y-1 p-4">
           <button
             data-page="dashboard"
-            class="nav-btn w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400"
+            class="nav-btn w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-blue-700/40 transition-colors focus:outline-none focus:ring-1 focus:ring-blue-400"
           >
             <i class="fas fa-tachometer-alt w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
             <span class="flex-1 text-left text-sm font-medium">ড্যাশবোর্ড</span>
@@ -314,7 +341,7 @@
 
           <button
             data-page="student-filter"
-            class="nav-btn w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            class="nav-btn w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-indigo-100 dark:hover:bg-violet-700/40 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-400"
           >
             <i class="fas fa-filter w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
             <span class="flex-1 text-left text-sm font-medium">শিক্ষার্থী ফিল্টার</span>
@@ -356,6 +383,14 @@
             <span class="flex-1 text-left text-sm font-medium">এক্সপোর্ট</span>
           </button>
 
+          <button
+            data-page="public-settings"
+            class="nav-btn w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-900/50 transition-colors focus:outline-none focus:ring-1 focus:ring-slate-400 hidden"
+          >
+            <i class="fas fa-cog w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <span class="flex-1 text-left text-sm font-medium">পাবলিক সেটিংস</span>
+          </button>
+
           <hr class="my-3 border-gray-300 dark:border-gray-600 private-tab-divider hidden" />
 
           <button
@@ -367,7 +402,7 @@
           </button>
           <button
             data-page="members"
-            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-indigo-100 dark:hover:bg-violet-700/40 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-indigo-400"
           >
             <i class="fas fa-users w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
             <span class="flex-1 text-left text-sm font-medium">শিক্ষার্থী ব্যবস্থাপনা</span>
@@ -389,11 +424,35 @@
           </button>
 
           <button
+            data-page="teacher-management"
+            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-purple-400"
+          >
+            <i class="fas fa-chalkboard-teacher w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <span class="flex-1 text-left text-sm font-medium">শিক্ষক ম্যানেজমেন্ট</span>
+          </button>
+
+          <button
+            data-page="class-management"
+            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          >
+            <i class="fas fa-school w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <span class="flex-1 text-left text-sm font-medium">ক্লাস ম্যানেজমেন্ট</span>
+          </button>
+
+          <button
             data-page="admin-management"
             class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-rose-400"
           >
             <i class="fas fa-user-shield w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
             <span class="flex-1 text-left text-sm font-medium">অ্যাডমিন ম্যানেজমেন্ট</span>
+          </button>
+
+          <button
+            data-page="data-migration"
+            class="nav-btn private-tab w-full flex items-center space-x-3 p-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors disabled-nav focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          >
+            <i class="fas fa-database w-5 text-center text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <span class="flex-1 text-left text-sm font-medium">ডেটা মাইগ্রেশন</span>
           </button>
 
           <button
@@ -416,6 +475,9 @@
         class="flex-1 lg:ml-64 page-content transition-margin duration-300 ease-in-out px-4  overflow-y-auto"
       >
         <div id="appContainer" class="max-w-7xl mx-auto">
+          <!-- Data Migration Tool Page -->
+          <div id="page-data-migration" class="page hidden space-y-4 mt-6 lg:mt-0"></div>
+
           <div id="page-dashboard" class="page space-y-2 hidden mt-6 lg:mt-0">
 
             <!-- Elite Group (Top 3) -->
@@ -675,6 +737,22 @@
                 রিফ্রেশ
               </button>
             </div>
+
+            <!-- Ranking Filters -->
+            <div id="rankingFilters" class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+              <select id="rankingClassFilter" class="form-select block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:text-white shadow-sm">
+                <option value="">সকল ক্লাস</option>
+              </select>
+              <select id="rankingSectionFilter" class="form-select block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:text-white shadow-sm">
+                <option value="">সকল শাখা</option>
+              </select>
+              <select id="rankingSubjectFilter" class="form-select block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:text-white shadow-sm">
+                <option value="">সকল বিষয়</option>
+              </select>
+              <select id="rankingTaskFilter" class="form-select block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:text-white shadow-sm">
+                <option value="">সকল এসাইনমেন্ট</option>
+              </select>
+            </div>
             <div id="studentRankingList" class="space-y-4">
               <div class="placeholder-content">
                 <i class="fas fa-spinner fa-spin mr-2"></i>
@@ -727,16 +805,11 @@
           <div id="page-groups" class="page private-tab-content space-y-6 hidden mt-6 lg:mt-0">
             <h2 class="text-2xl font-bold mb-4">গ্রুপ ব্যবস্থাপনা</h2>
             <div class="card card-body">
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input
-                  id="groupNameInput"
-                  type="text"
-                  placeholder="নতুন গ্রুপের নাম"
-                  class="form-input flex-grow"
-                  maxlength="50"
-                  aria-label="New group name"
-                />
-                <button id="addGroupBtn" class="btn btn-primary flex-shrink-0">গ্রুপ যোগ করুন</button>
+              <div class="flex justify-end">
+                <button id="addGroupBtn" class="btn btn-primary">
+                  <i class="fas fa-plus mr-2"></i>
+                  নতুন গ্রুপ তৈরি করুন
+                </button>
               </div>
             </div>
             <div class="card">
@@ -789,6 +862,18 @@
                     <select id="studentGenderInput" class="form-select" aria-required="true">
                       <option value="ছেলে">ছেলে</option>
                       <option value="মেয়ে">মেয়ে</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label" for="studentClassInput">ক্লাস*</label>
+                    <select id="studentClassInput" class="form-select" aria-required="true">
+                      <option value="">নির্বাচন করুন</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label" for="studentSectionInput">শাখা*</label>
+                    <select id="studentSectionInput" class="form-select" aria-required="true">
+                      <option value="">নির্বাচন করুন</option>
                     </select>
                   </div>
                   <div>
@@ -876,6 +961,27 @@
             <div class="card">
               <div class="card-header">নতুন টাস্ক যোগ করুন</div>
               <div class="card-body space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="label" for="taskClassInput">ক্লাস</label>
+                    <select id="taskClassInput" class="form-select">
+                      <option value="">ক্লাস নির্বাচন করুন</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label" for="taskSectionInput">শাখা</label>
+                    <select id="taskSectionInput" class="form-select">
+                      <option value="">শাখা নির্বাচন করুন</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label" for="taskSubjectInput">বিষয়</label>
+                    <select id="taskSubjectInput" class="form-select">
+                      <option value="">বিষয় নির্বাচন করুন</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label class="label" for="taskNameInput">টাস্কের নাম*</label>
                   <input
@@ -913,9 +1019,9 @@
                       />
                     </div>
                     <div>
-                      <label for="maxAdditionalScoreInput" class="label text-xs">অতিরিক্ত</label>
+                      <label for="maxProgressScoreInput" class="label text-xs">অগ্রগতি</label>
                       <input
-                        id="maxAdditionalScoreInput"
+                        id="maxProgressScoreInput"
                         type="number"
                         min="0"
                         value="25"
@@ -987,6 +1093,26 @@
             <div class="card">
               <div class="card-header">মূল্যায়ন সেটআপ</div>
               <div class="card-body space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="label">ক্লাস</label>
+                    <select id="evaluationClassSelect" class="form-select">
+                      <option value="">সকল ক্লাস</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">শাখা</label>
+                    <select id="evaluationSectionSelect" class="form-select">
+                      <option value="">সকল শাখা</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label">বিষয়</label>
+                    <select id="evaluationSubjectSelect" class="form-select">
+                      <option value="">সকল বিষয়</option>
+                    </select>
+                  </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="label">টাস্ক নির্বাচন করুন*</label>
@@ -1033,11 +1159,7 @@
 
           <div id="page-upcoming-assignments" class="page hidden space-y-2 mt-6 lg:mt-0">
             <div class="flex flex-col gap-3">
-              <div>
-
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">আপকামিং এসাইনমেন্ট</h2>
-              
-              </div>
+             
               <div class="hidden">
                 <label for="assignmentStatusFilter" class="text-sm font-medium text-gray-700 dark:text-gray-300">
                  স্ট্যাটাস ফিল্টার করুন:
@@ -1063,7 +1185,7 @@
 
           <div id="page-group-policy" class="page space-y-6 hidden mt-6 lg:mt-0">
             <!-- <h2 class="text-2xl font-bold mb-4">গ্রুপ পলিসি</h2> -->
-            <div id="policySections" class="space-y-4">
+            <div id="policySections" class="space-y-4 max-w-6xl mx-auto mt-8">
               <div class="placeholder-content card card-body">
                 <i class="fas fa-spinner fa-spin mr-2"></i>
                 পলিসি লোড হচ্ছে...
@@ -1148,6 +1270,16 @@
             </div>
           </div>
 
+          <!-- Teacher Management Page -->
+          <div id="page-teacher-management" class="page private-tab-content space-y-6 hidden mt-6 lg:mt-0">
+            <div id="teacherManagementContainer"></div>
+          </div>
+
+          <!-- Class Management Page -->
+          <div id="page-class-management" class="page private-tab-content space-y-6 hidden mt-6 lg:mt-0">
+            <div id="classManagementContainer"></div>
+          </div>
+
           <div id="page-admin-management" class="page private-tab-content space-y-6 hidden mt-6 lg:mt-0">
             <h2 class="text-2xl font-bold mb-4">অ্যাডমিন ম্যানেজমেন্ট</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -1162,6 +1294,8 @@
               <div class="stat-card">
                 <div id="adminCount" class="text-indigo-600 dark:text-indigo-400">0</div>
                 <div>অ্যাডমিন</div>
+              </div>
+              <div class="stat-card">
                 <div id="userCount" class="text-green-600 dark:text-green-400">0</div>
                 <div>ব্যবহারকারী</div>
               </div>
@@ -1230,7 +1364,7 @@
                       <option value="all">সকল গ্রুপ</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                      <i class="fas fa-chevron-down text-xs text-gray-500"></i>
+                      <i class="fas fa-chevron-down text-xs text-gray-500 dark:text-gray-400"></i>
                     </div>
                   </div>
 
@@ -1245,7 +1379,7 @@
                       <option value="all">সকল একাডেমিক গ্রুপ</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                      <i class="fas fa-chevron-down text-xs text-gray-500"></i>
+                      <i class="fas fa-chevron-down text-xs text-gray-500 dark:text-gray-400"></i>
                     </div>
                   </div>
                 </div>
@@ -1506,7 +1640,7 @@
         class="relative mx-auto mt-10 w-[96%] max-w-6xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto"
       >
         <div
-          class="sticky top-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur border-b border-gray-200 dark:border-gray-700 px-5 py-3 flex items-center justify-between"
+          class="sticky top-0 z-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur border-b border-gray-200 dark:border-gray-700 px-5 py-3 flex items-center justify-between"
         >
           <h3 id="sdmTitle" class="text-lg font-semibold">শিক্ষার্থীর ফলাফল</h3>
           <div class="flex items-center gap-2">
@@ -1540,24 +1674,59 @@
               <div class="text-sm">
                 <div id="sdmName" class="text-lg font-bold"></div>
                 <div id="sdmRoll" class="text-gray-600 dark:text-gray-300"></div>
+                <div id="sdmClass" class="text-gray-600 dark:text-gray-300"></div>
+                <div id="sdmSection" class="text-gray-600 dark:text-gray-300"></div>
                 <div id="sdmGroup" class="text-gray-600 dark:text-gray-300"></div>
                 <div id="sdmAcademic" class="text-gray-600 dark:text-gray-300"></div>
                 <div id="sdmSession" class="text-gray-600 dark:text-gray-300"></div>
                 <div id="sdmContact" class="text-gray-600 dark:text-gray-300"></div>
               </div>
             </div>
-            <div class="grid grid-cols-3 gap-3 text-sm">
-              <div class="rounded-lg bg-gray-50 dark:bg-gray-900/40 p-3 border border-gray-200 dark:border-gray-700">
-                <div class="text-gray-500 dark:text-gray-400">মোট গড়</div>
-                <div id="sdmAvgTotal" class="text-lg font-semibold"></div>
+                        <!-- Statistics Cards - Premium Design (Compact Vertical Layout for No Overflow) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 lg:gap-3">
+              <!-- Total Points -->
+              <div class="group relative overflow-hidden rounded-xl border border-blue-200/60 dark:border-blue-700/40 bg-gradient-to-br from-blue-50 via-blue-50/50 to-white dark:from-blue-950/30 dark:via-blue-900/20 dark:to-gray-800 p-2 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-blue-200/20 dark:bg-blue-500/10 rounded-full -mr-6 -mt-6 blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                <div class="relative flex flex-col items-center justify-center text-center h-full gap-1">
+                  <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm">
+                    <i class="fas fa-chart-line text-sm"></i>
+                  </div>
+                  <div class="w-full">
+                    <div class="text-[9px] font-bold text-blue-600/80 dark:text-blue-400/80 uppercase tracking-wide break-words leading-tight mb-0.5">মোট পয়েন্ট</div>
+                    <div id="sdmAvgTotal" class="text-lg lg:text-xl font-extrabold text-blue-700 dark:text-blue-300 tracking-tight leading-none break-words"></div>
+                    <div class="mt-0.5 text-[8px] text-blue-600/60 dark:text-blue-400/60 font-medium break-words leading-tight">Total Points Avg</div>
+                  </div>
+                </div>
               </div>
-              <div class="rounded-lg bg-gray-50 dark:bg-gray-900/40 p-3 border border-gray-200 dark:border-gray-700">
-                <div class="text-gray-500 dark:text-gray-400">গড় %</div>
-                <div id="sdmAvgPct" class="text-lg font-semibold"></div>
+
+              <!-- Percentage -->
+              <div class="group relative overflow-hidden rounded-xl border border-emerald-200/60 dark:border-emerald-700/40 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-white dark:from-emerald-950/30 dark:via-emerald-900/20 dark:to-gray-800 p-2 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-200/20 dark:bg-emerald-500/10 rounded-full -mr-6 -mt-6 blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                <div class="relative flex flex-col items-center justify-center text-center h-full gap-1">
+                  <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                    <i class="fas fa-percentage text-sm"></i>
+                  </div>
+                  <div class="w-full">
+                    <div class="text-[9px] font-bold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wide break-words leading-tight mb-0.5">পয়েন্ট %</div>
+                    <div id="sdmAvgPct" class="text-lg lg:text-xl font-extrabold text-emerald-700 dark:text-emerald-300 tracking-tight leading-none break-words"></div>
+                    <div class="mt-0.5 text-[8px] text-emerald-600/60 dark:text-emerald-400/60 font-medium break-words leading-tight">Point Percentage</div>
+                  </div>
+                </div>
               </div>
-              <div class="rounded-lg bg-gray-50 dark:bg-gray-900/40 p-3 border border-gray-200 dark:border-gray-700">
-                <div class="text-gray-500 dark:text-gray-400">রেঙ্ক</div>
-                <div id="sdmRank" class="text-lg font-semibold"></div>
+
+              <!-- Rank -->
+              <div class="group relative overflow-hidden rounded-xl border border-amber-200/60 dark:border-amber-700/40 bg-gradient-to-br from-amber-50 via-amber-50/50 to-white dark:from-amber-950/30 dark:via-amber-900/20 dark:to-gray-800 p-2 shadow-sm hover:shadow-md transition-all duration-300">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-amber-200/20 dark:bg-amber-500/10 rounded-full -mr-6 -mt-6 blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                <div class="relative flex flex-col items-center justify-center text-center h-full gap-1">
+                  <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 shadow-sm">
+                    <i class="fas fa-trophy text-sm"></i>
+                  </div>
+                  <div class="w-full">
+                    <div class="text-[9px] font-bold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wide break-words leading-tight mb-0.5">পদ</div>
+                    <div id="sdmRank" class="text-lg lg:text-xl font-extrabold text-amber-700 dark:text-amber-300 tracking-tight leading-none break-words"></div>
+                    <div class="mt-0.5 text-[8px] text-amber-600/60 dark:text-amber-400/60 font-medium break-words leading-tight">Rank Position</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1585,11 +1754,12 @@
                   <th class="px-3 py-2 text-left">শিরোনাম</th>
                   <th class="px-3 py-2 text-left">টাস্ক</th>
                   <th class="px-3 py-2 text-left">টিম</th>
-                  <th class="px-3 py-2 text-left">অতিরিক্ত</th>
+                  <th class="px-3 py-2 text-left">অগ্রগতি</th>
                   <th class="px-3 py-2 text-left">MCQ</th>
                   <th class="px-3 py-2 text-left">মোট</th>
                   <th class="px-3 py-2 text-left">%</th>
-                  <th class="px-3 py-2 text-left">মন্তব্য</th>
+                  <th class="px-3 py-2 text-left whitespace-nowrap">অবস্থা</th>
+                  <th class="px-3 py-2 text-left">পাঠদান-মন্তব্য</th>
                   <th class="px-3 py-2 text-left">তারিখ</th>
                 </tr>
               </thead>
@@ -1609,5 +1779,6 @@
         </div>
       </div>
     </div>
+
   </body>
 </html>

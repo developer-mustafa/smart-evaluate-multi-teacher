@@ -845,7 +845,7 @@ function _deriveMaxScoreFromTask(task) {
     return (
       (parseFloat(breakdown.task) || 0) +
       (parseFloat(breakdown.team) || 0) +
-      (parseFloat(breakdown.additional) || 0) +
+      (parseFloat(breakdown.Progress) || 0) +
       (parseFloat(breakdown.mcq) || 0)
     );
   }

@@ -196,7 +196,7 @@ export function render() {
 
         <!-- Extra Filters (Chips Layout) -->
         <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
-          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">অতিরিক্ত মূল্যায়ন ফিল্টার</label>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">অগ্রগতি মূল্যায়ন ফিল্টার</label>
           <div class="flex flex-wrap gap-2">
             ${EXTRA_FILTERS.map(f => `
               <label class="group relative cursor-pointer select-none">
@@ -599,7 +599,7 @@ function _applyFiltersAndRender() {
             studentEvaluations.push({
                 taskId: evalDoc.taskId,
                 taskDate: evalDoc.taskDate,
-                ...evalDoc.scores[s.id] // Contains totalScore, additionalCriteria, etc.
+                ...evalDoc.scores[s.id] // Contains totalScore, ProgressCriteria, etc.
             });
         }
     });
@@ -644,7 +644,7 @@ function _applyFiltersAndRender() {
                  if (!hasResolved) return false;
 
                  const hasActiveProblem = studentEvaluations.some(e => {
-                     const topic = e.additionalCriteria?.topic;
+                     const topic = e.ProgressCriteria?.topic;
                      const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
                      return isProblematic && !e.problemRecovered;
                  });
@@ -655,13 +655,13 @@ function _applyFiltersAndRender() {
                  const targetEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
                  if (!targetEval) return false;
                  
-                 const topic = targetEval.additionalCriteria?.topic;
+                 const topic = targetEval.ProgressCriteria?.topic;
                  const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
                  return isProblematic && !targetEval.problemRecovered;
              } else {
                  // Has Problem: (topic_understood OR topic_none) AND !problemRecovered
                  const hasProblem = studentEvaluations.some(e => {
-                     const topic = e.additionalCriteria?.topic;
+                     const topic = e.ProgressCriteria?.topic;
                      const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
                      return isProblematic && !e.problemRecovered;
                  });
@@ -670,7 +670,7 @@ function _applyFiltersAndRender() {
          } else {
              // Check for specific criteria in ANY evaluation
              const hasCriteria = studentEvaluations.some(e => {
-                 const details = e.additionalCriteria || {};
+                 const details = e.ProgressCriteria || {};
                  
                  // Topic Check
                  if (filterId.startsWith('topic_')) {
@@ -802,7 +802,7 @@ function _applyFiltersAndRender() {
       if (activeFilters.assignment !== 'all') {
           const assignEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
           if (assignEval) {
-              const topic = assignEval.additionalCriteria?.topic;
+              const topic = assignEval.ProgressCriteria?.topic;
               const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
               if (isProblematic && !assignEval.problemRecovered) hasProblem = true;
               if (assignEval.problemRecovered) hasResolved = true;
@@ -810,7 +810,7 @@ function _applyFiltersAndRender() {
       } else {
           // Check all evaluations
           hasProblem = studentEvaluations.some(e => {
-              const topic = e.additionalCriteria?.topic;
+              const topic = e.ProgressCriteria?.topic;
               const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
               return isProblematic && !e.problemRecovered;
           });

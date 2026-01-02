@@ -365,9 +365,9 @@
                 const sc = scores[s.id];
                 const taskScore = parseFloat(sc?.taskScore) || 0;
                 const teamScore = parseFloat(sc?.teamScore) || 0;
-                const additional = parseFloat(sc?.additionalScore) || 0;
+                const Progress = parseFloat(sc?.ProgressScore) || 0;
                 const mcq = parseFloat(sc?.mcqScore) || 0;
-                const total = parseFloat(sc?.totalScore) || (taskScore + teamScore + additional + mcq);
+                const total = parseFloat(sc?.totalScore) || (taskScore + teamScore + Progress + mcq);
                 const max = parseFloat(e.ev?.maxPossibleScore) || parseFloat(e.task?.maxScore) || 100;
                 const pct = max > 0 ? (total / max) * 100 : 0;
 
@@ -394,10 +394,10 @@
                   sectionName,
                   agName,
                   agClass,
-                  taskScore, teamScore, additional, mcq, total, pct, comment,
-                  taskScore, teamScore, additional, mcq, total, pct, comment,
+                  taskScore, teamScore, Progress, mcq, total, pct, comment,
+                  taskScore, teamScore, Progress, mcq, total, pct, comment,
                   problemRecovered: sc?.problemRecovered || false,
-                  topic: sc?.additionalCriteria?.topic || null
+                  topic: sc?.ProgressCriteria?.topic || null
                 };
               })
               .filter(r => Number.isFinite(r.total))
@@ -422,7 +422,7 @@
                 <td class="px-3 py-2 whitespace-nowrap text-center">${escHtml(r.sectionName)}</td>
                 <td class="px-3 py-2 text-right">${r.taskScore.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right">${r.teamScore.toFixed(2)}</td>
-                <td class="px-3 py-2 text-right">${r.additional.toFixed(2)}</td>
+                <td class="px-3 py-2 text-right">${r.Progress.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right">${r.mcq.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right font-semibold">${r.total.toFixed(2)}</td>
                 <td class="px-3 py-2 text-right"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${pctCls}">${r.pct.toFixed(1)}%</span></td>

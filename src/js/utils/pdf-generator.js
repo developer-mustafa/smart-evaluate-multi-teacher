@@ -593,7 +593,7 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
       evalCount: 0,
       taskScore: 0,
       teamScore: 0,
-      additionalScore: 0,
+      ProgressScore: 0,
       mcqScore: 0,
       comment: '',
       problemRecovered: false,
@@ -620,14 +620,14 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
           // Accumulate detailed scores
           data.taskScore += parseFloat(sc.taskScore) || 0;
           data.teamScore += parseFloat(sc.teamScore) || 0;
-          data.additionalScore += parseFloat(sc.additionalScore) || 0;
+          data.ProgressScore += parseFloat(sc.ProgressScore) || 0;
           data.mcqScore += parseFloat(sc.mcqScore) || 0;
           
           // For single task, keep the comment and problem recovered status
           if (isSingleTask) {
             data.comment = sc.comments || '';
             data.problemRecovered = sc.problemRecovered || false;
-            data.topic = sc.additionalCriteria?.topic || null;
+            data.topic = sc.ProgressCriteria?.topic || null;
           }
         }
       });
@@ -659,7 +659,7 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
       const displayStats = {
         task: (stats.taskScore / divisor).toFixed(1),
         team: (stats.teamScore / divisor).toFixed(1),
-        add: (stats.additionalScore / divisor).toFixed(1),
+        add: (stats.ProgressScore / divisor).toFixed(1),
         mcq: (stats.mcqScore / divisor).toFixed(1),
         total: stats.totalScore.toFixed(1),
         max: stats.maxPossible
@@ -768,7 +768,7 @@ export async function generateGroupWiseFullDetailsPDF(groups, students, tasks, e
               ${!isSingleTask ? '<th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">মূল্যায়ন</th>' : ''}
               <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">টাস্ক</th>
               <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">টিম</th>
-              <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">অতিরিক্ত</th>
+              <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">অগ্রগতি</th>
               <th class="px-2 py-3 text-center font-bold w-[8%] border-r border-indigo-500/30">MCQ</th>
               <th class="px-2 py-3 text-right font-bold w-[9%] border-r border-indigo-500/30">মোট</th>
               <th class="px-2 py-3 text-right font-bold w-[9%] border-r border-indigo-500/30">গড় %</th>
@@ -920,7 +920,7 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager, class
       <td class="px-3 py-2 text-center">${_bn(m.evaluationCount)}</td>
       <td class="px-3 py-2 text-center text-gray-600">${m.avgTaskScore ? m.avgTaskScore.toFixed(1) : '-'}</td>
       <td class="px-3 py-2 text-center text-gray-600">${m.avgTeamScore ? m.avgTeamScore.toFixed(1) : '-'}</td>
-      <td class="px-3 py-2 text-center text-gray-600">${m.avgAdditionalScore ? m.avgAdditionalScore.toFixed(1) : '-'}</td>
+      <td class="px-3 py-2 text-center text-gray-600">${m.avgProgressScore ? m.avgProgressScore.toFixed(1) : '-'}</td>
       <td class="px-3 py-2 text-center text-gray-600">${m.avgMcqScore ? m.avgMcqScore.toFixed(1) : '-'}</td>
       <td class="px-3 py-2 text-center font-bold text-indigo-700">${m.avgTotalScore ? m.avgTotalScore.toFixed(1) : '-'}</td>
     </tr>
@@ -940,7 +940,7 @@ export async function generateSingleGroupAnalysisPDF(groupData, uiManager, class
             <th class="px-3 py-2 text-center">মূল্যায়ন</th>
             <th class="px-3 py-2 text-center">টাস্ক স্কোর</th>
             <th class="px-3 py-2 text-center">টিম স্কোর</th>
-            <th class="px-3 py-2 text-center">অতিরিক্ত স্কোর</th>
+            <th class="px-3 py-2 text-center">অগ্রগতি স্কোর</th>
             <th class="px-3 py-2 text-center">MCQ স্কোর</th>
             <th class="px-3 py-2 text-center">গড় স্কোর</th>
           </tr>
@@ -1026,7 +1026,7 @@ export async function generateStudentListPDF(students, activeFilters, evaluation
       // Add Extra Filters
       if (activeFilters.extra && activeFilters.extra.length > 0) {
           const extraNames = activeFilters.extra.map(id => extraMap.get(id) || id).join(', ');
-          parts.push(`অতিরিক্ত: ${extraNames}`);
+          parts.push(`অগ্রগতি: ${extraNames}`);
       }
       
       return parts.length > 0 ? parts.join(' | ') : 'সকল শিক্ষার্থী';

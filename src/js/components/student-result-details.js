@@ -168,7 +168,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
         const bd = task?.maxScoreBreakdown || ev?.maxScoreBreakdown || {};
         const maxTask = parseFloat(bd.task) || 0;
         const maxTeam = parseFloat(bd.team) || 0;
-        const maxAdditional = parseFloat(bd.additional) || 0;
+        const maxProgress = parseFloat(bd.Progress) || 0;
         const maxMcq = parseFloat(bd.mcq) || 0;
 
         return {
@@ -176,18 +176,18 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
           date: ms ? new Date(ms) : null,
           taskScore: parseFloat(sc?.taskScore) || 0,
           teamScore: parseFloat(sc?.teamScore) || 0,
-          additional: parseFloat(sc?.additionalScore) || 0,
+          Progress: parseFloat(sc?.ProgressScore) || 0,
           mcq: parseFloat(sc?.mcqScore) || 0,
           maxTask,
           maxTeam,
-          maxAdditional,
+          maxProgress,
           maxMcq,
           total,
           max,
           pct,
           comments: typeof sc?.comments === 'string' ? sc.comments.trim() : '',
           problemRecovered: sc?.problemRecovered || false,
-          topic: sc?.additionalCriteria?.topic || null
+          topic: sc?.ProgressCriteria?.topic || null
         };
       })
       .filter(Boolean)
@@ -310,15 +310,15 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
       const count = Math.max(1, evals.length);
       const sums = evals.reduce(
         (a, r) => ({ task: a.task + (r.taskScore || 0), team: a.team + (r.teamScore || 0),
-                     additional: a.additional + (r.additional || 0), mcq: a.mcq + (r.mcq || 0),
+                     Progress: a.Progress + (r.Progress || 0), mcq: a.mcq + (r.mcq || 0),
                      total: a.total + (r.total || 0) }),
-        { task: 0, team: 0, additional: 0, mcq: 0, total: 0 }
+        { task: 0, team: 0, Progress: 0, mcq: 0, total: 0 }
       );
       const avgTotalLocal = sums.total / count || 0;
       [
         ['টাস্ক', sums.task / count],
         ['টিম', sums.team / count],
-        ['অতিরিক্ত', sums.additional / count],
+        ['অগ্রগতি', sums.Progress / count],
         ['MCQ', sums.mcq / count],
       ].forEach(([k, v]) => {
         const li = document.createElement('li');
@@ -333,14 +333,14 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
         const count2 = Math.max(1, evals.length);
         const sums2 = evals.reduce(
           (a, r) => ({ task: a.task + (r.taskScore || 0), team: a.team + (r.teamScore || 0),
-                       additional: a.additional + (r.additional || 0), mcq: a.mcq + (r.mcq || 0), total: a.total + (r.total || 0) }),
-          { task: 0, team: 0, additional: 0, mcq: 0, total: 0 }
+                       Progress: a.Progress + (r.Progress || 0), mcq: a.mcq + (r.mcq || 0), total: a.total + (r.total || 0) }),
+          { task: 0, team: 0, Progress: 0, mcq: 0, total: 0 }
         );
         const avgTotal2 = sums2.total / count2 || 0;
         const metrics2 = [
           { key: 'task', label: 'টাস্ক', color: 'indigo', value: sums2.task / count2 },
           { key: 'team', label: 'টিম', color: 'emerald', value: sums2.team / count2 },
-          { key: 'additional', label: 'অতিরিক্ত', color: 'amber', value: sums2.additional / count2 },
+          { key: 'Progress', label: 'অগ্রগতি', color: 'amber', value: sums2.Progress / count2 },
           { key: 'mcq', label: 'MCQ', color: 'sky', value: sums2.mcq / count2 },
         ];
         const html = metrics2.map(({label,color,value}) => {
@@ -366,19 +366,19 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
         const totals = evals.reduce((a, r) => ({
           task: a.task + (r.taskScore || 0),
           team: a.team + (r.teamScore || 0),
-          additional: a.additional + (r.additional || 0),
+          Progress: a.Progress + (r.Progress || 0),
           mcq: a.mcq + (r.mcq || 0)
-        }), { task: 0, team: 0, additional: 0, mcq: 0 });
+        }), { task: 0, team: 0, Progress: 0, mcq: 0 });
         const maxTotals = evals.reduce((a, r) => ({
           task: a.task + (r.maxTask || 0),
           team: a.team + (r.maxTeam || 0),
-          additional: a.additional + (r.maxAdditional || 0),
+          Progress: a.Progress + (r.maxProgress || 0),
           mcq: a.mcq + (r.maxMcq || 0)
-        }), { task: 0, team: 0, additional: 0, mcq: 0 });
+        }), { task: 0, team: 0, Progress: 0, mcq: 0 });
         const metrics = [
           { key: 'task', label: 'টাস্ক', color: 'indigo' },
           { key: 'team', label: 'টিম', color: 'emerald' },
-          { key: 'additional', label: 'অতিরিক্ত', color: 'amber' },
+          { key: 'Progress', label: 'অগ্রগতি', color: 'amber' },
           { key: 'mcq', label: 'MCQ', color: 'sky' },
         ];
         const html2 = metrics.map(({key,label,color}) => {
@@ -446,7 +446,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
         </td>
         <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300">${fmt(h.taskScore)}</span></td>
         <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">${fmt(h.teamScore)}</span></td>
-        <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">${fmt(h.additional)}</span></td>
+        <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">${fmt(h.Progress)}</span></td>
         <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300">${fmt(h.mcq)}</span></td>
         <td class="px-3 py-2">${fmt(h.total)}</td>
         <td class="px-3 py-2"><span class="inline-block rounded px-2 py-0.5 text-xs font-semibold ${pal.badge}">${fmt(h.pct,1)}%</span></td>
@@ -510,13 +510,13 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     const evs = modal.__evals || [], st = modal.__student || {};
     if (!evs.length) return;
 
-    const headers = ['Title','Task','Team','Additional','MCQ','Total','Percent','Comments','Date'];
+    const headers = ['Title','Task','Team','Progress','MCQ','Total','Percent','Comments','Date'];
     const toIso = (d) => { try { return (d ? new Date(d) : null)?.toISOString().slice(0,10) || ''; } catch { return ''; } };
     const rows = evs.map(h => [
       h.taskName || '',
       Number(h.taskScore || 0).toFixed(2),
       Number(h.teamScore || 0).toFixed(2),
-      Number(h.additional || 0).toFixed(2),
+      Number(h.Progress || 0).toFixed(2),
       Number(h.mcq || 0).toFixed(2),
       Number(h.total || 0).toFixed(2),
       Number(h.pct || 0).toFixed(1),
@@ -661,7 +661,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     y += infoH + 14;
 
     // table
-    const head = [['Assignment','Task','Team','Additional','MCQ','Total','%','Status','Date']];
+    const head = [['Assignment','Task','Team','Progress','MCQ','Total','%','Status','Date']];
     const body = evs.map((h,i) => {
       const c = (h.comments || '').replace(/\r?\n/g,' ').trim();
       const short = c.length > 240 ? 'Comment too long. See in app.' : c;
@@ -678,7 +678,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
         taskName,
         Number(h.taskScore || 0).toFixed(2),
         Number(h.teamScore || 0).toFixed(2),
-        Number(h.additional || 0).toFixed(2),
+        Number(h.Progress || 0).toFixed(2),
         Number(h.mcq || 0).toFixed(2),
         Number(h.total || 0).toFixed(2),
         Number(h.pct || 0).toFixed(1),

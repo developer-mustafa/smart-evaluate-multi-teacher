@@ -13,7 +13,7 @@ let currentTaskBreakdown = null;
 const SCORE_BREAKDOWN_MAX = {
   task: 20,
   team: 15,
-  additional: 25,
+  Progress: 25,
   mcq: 40,
 };
 const TOTAL_MAX_SCORE = 100;
@@ -106,8 +106,8 @@ function _getClassColor(className) {
   return CLASS_COLORS[Math.abs(hash) % CLASS_COLORS.length];
 }
 
-// Additional Criteria Definitions
-const additionalCriteria = {
+// Progress Criteria Definitions
+const ProgressCriteria = {
   topic: [
     { id: 'topic_none', text: 'এখনো এই টাস্ক পারিনা', marks: -5 },
     { id: 'topic_understood', text: 'শুধু বুঝেছি', marks: 5 },
@@ -649,7 +649,7 @@ async function _handleStartOrEditEvaluation() {
 
   if (!task.maxScoreBreakdown || task.maxScoreBreakdown.mcq === undefined) {
     uiManager.showToast(
-      'এই টাস্কটির স্কোর ব্রেকডাউন (task, team, additional, mcq) সেট করা নেই। অনুগ্রহ করে টাস্কটি সম্পাদনা করুন।',
+      'এই টাস্কটির স্কোর ব্রেকডাউন (task, team, Progress, mcq) সেট করা নেই। অনুগ্রহ করে টাস্কটি সম্পাদনা করুন।',
       'error',
       5000
     );
@@ -696,9 +696,9 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
   const breakdown = task.maxScoreBreakdown || SCORE_BREAKDOWN_MAX;
   const maxTask = parseFloat(breakdown.task) || 0;
   const maxTeam = parseFloat(breakdown.team) || 0;
-  const maxAdditional = parseFloat(breakdown.additional) || 0;
+  const maxProgress = parseFloat(breakdown.Progress) || 0;
   const maxMcq = parseFloat(breakdown.mcq) || 0;
-  const totalMaxScore = task.maxScore || maxTask + maxTeam + maxAdditional + maxMcq;
+  const totalMaxScore = task.maxScore || maxTask + maxTeam + maxProgress + maxMcq;
 
   currentTaskBreakdown = breakdown;
 
@@ -715,7 +715,7 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
     task.name
   )} - ${helpers.ensureBengaliText(group.name)}
              </h3>
-             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-0" title="টাস্ক-${maxTask}, টিম-${maxTeam}, অতি-${maxAdditional}, MCQ-${maxMcq}">
+             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-0" title="টাস্ক-${maxTask}, টিম-${maxTeam}, অতি-${maxProgress}, MCQ-${maxMcq}">
                  মোট সর্বোচ্চ স্কোর: ${helpers.convertToBanglaNumber(totalMaxScore)}
              </p>
         </div>
@@ -736,8 +736,8 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                         )})</th>
                         <th scope="col" class="th text-center w-4/12">
                           <div class="flex flex-col items-center gap-1">
-                            <span>অতিরিক্ত ক্রাইটেরিয়া (সর্বোচ্চ ${helpers.convertToBanglaNumber(
-                              maxAdditional
+                            <span>অগ্রগতি ক্রাইটেরিয়া (সর্বোচ্চ ${helpers.convertToBanglaNumber(
+                              maxProgress
                             )})</span>
                             <button type="button" id="unmarkAllCriteriaBtn" class="px-2 py-0.5 text-[10px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 rounded border border-rose-200 dark:border-rose-800 transition-colors">
                               <i class="fas fa-times-circle text-[9px]"></i> আনমার্কড অল
@@ -756,7 +756,7 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
   students.forEach((student, index) => {
     const scoreData = existingScores ? existingScores[student.id] : null;
     const rowClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700';
-    const criteriaDetails = scoreData?.additionalCriteria || {};
+    const criteriaDetails = scoreData?.ProgressCriteria || {};
     const topicChoice = criteriaDetails.topic || '';
     const homeworkChecked = criteriaDetails.homework || false;
     const attendanceChecked = criteriaDetails.attendance || false;
@@ -797,10 +797,10 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                 <td class="td"><input type="number" step="any" class="score-input mcq-score" min="0" max="${maxMcq}" data-max="${maxMcq}" value="${
       scoreData?.mcqScore ?? ''
     }" aria-label="${student.name} MCQ Score"></td>
-                <td class="td criteria-cell" data-max-additional="${maxAdditional}">
+                <td class="td criteria-cell" data-max-Progress="${maxProgress}">
                     <fieldset class="space-y-2">
-                        <legend class="sr-only">অতিরিক্ত ক্রাইটেরিয়া</legend>
-                        ${additionalCriteria.topic
+                        <legend class="sr-only">অগ্রগতি ক্রাইটেরিয়া</legend>
+                        ${ProgressCriteria.topic
                           .map(
                             (opt) => `
                             <label class="flex items-center text-xs space-x-2 cursor-pointer">
@@ -815,7 +815,7 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                           )
                           .join('')}
                         <hr class="dark:border-gray-600 my-1">
-                        ${additionalCriteria.options
+                        ${ProgressCriteria.options
                           .map(
                             (opt) => `
                             <label class="flex items-center text-xs space-x-2 cursor-pointer">
@@ -900,7 +900,7 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
         }
       });
       
-      uiManager.showToast('সকল অতিরিক্ত ক্রাইটেরিয়া রিসেট করা হয়েছে', 'info', 2000);
+      uiManager.showToast('সকল অগ্রগতি ক্রাইটেরিয়া রিসেট করা হয়েছে', 'info', 2000);
     });
   }
 }
@@ -934,7 +934,7 @@ function _handleScoreInput(inputElement) {
   const breakdown = currentTaskBreakdown || SCORE_BREAKDOWN_MAX;
   const maxTask = parseFloat(breakdown.task) || 0;
   const maxTeam = parseFloat(breakdown.team) || 0;
-  const maxAdditional = parseFloat(breakdown.additional) || 0;
+  const maxProgress = parseFloat(breakdown.Progress) || 0;
   const maxMcq = parseFloat(breakdown.mcq) || 0;
 
   // 1. Get Numeric Input Scores & Validate
@@ -962,22 +962,22 @@ function _handleScoreInput(inputElement) {
   const teamScore = getValue(teamScoreEl, maxTeam);
   const mcqScore = getValue(mcqScoreEl, maxMcq);
 
-  // 2. Calculate Additional Criteria Score
-  let additionalScore = 0;
+  // 2. Calculate Progress Criteria Score
+  let ProgressScore = 0;
   const topicRadio = row.querySelector('input[type="radio"]:checked');
   if (topicRadio) {
-    additionalScore += parseFloat(topicRadio.dataset.marks) || 0;
+    ProgressScore += parseFloat(topicRadio.dataset.marks) || 0;
   }
   row.querySelectorAll('input[type="checkbox"]:checked').forEach((checkbox) => {
       // Exclude problem-recovered-input from score calculation
       if (!checkbox.classList.contains('problem-recovered-input')) {
-         additionalScore += parseFloat(checkbox.dataset.marks) || 0;
+         ProgressScore += parseFloat(checkbox.dataset.marks) || 0;
       }
   });
-  additionalScore = Math.min(Math.max(additionalScore, -5), maxAdditional); // Cap
+  ProgressScore = Math.min(Math.max(ProgressScore, -5), maxProgress); // Cap
 
   // 3. Calculate Total
-  const calculatedTotal = taskScore + teamScore + mcqScore + additionalScore;
+  const calculatedTotal = taskScore + teamScore + mcqScore + ProgressScore;
   const finalTotal = Math.min(Math.max(calculatedTotal, 0), totalMaxScore); // Cap total 0-TotalMax
 
   if (totalDisplay) {
@@ -1017,7 +1017,7 @@ async function _handleSubmitEvaluation() {
     return;
   }
 
-  const { task: maxTask, team: maxTeam, additional: maxAdditional, mcq: maxMcq } = currentTaskBreakdown;
+  const { task: maxTask, team: maxTeam, Progress: maxProgress, mcq: maxMcq } = currentTaskBreakdown;
   const totalMaxScore = task.maxScore || TOTAL_MAX_SCORE;
 
   const scores = {};
@@ -1068,16 +1068,16 @@ async function _handleSubmitEvaluation() {
     const teamScore = parseFloat(teamScoreRaw);
     const mcqScore = parseFloat(mcqScoreRaw);
 
-    let additionalScore = 0;
-    const additionalCriteriaDetails = {
+    let ProgressScore = 0;
+    const ProgressCriteriaDetails = {
       topic: topicRadio?.value || null,
       homework: homeworkCheck?.checked || false,
       attendance: attendanceCheck?.checked || false,
     };
-    if (topicRadio) additionalScore += parseFloat(topicRadio.dataset.marks) || 0;
-    if (homeworkCheck?.checked) additionalScore += parseFloat(homeworkCheck.dataset.marks) || 0;
-    if (attendanceCheck?.checked) additionalScore += parseFloat(attendanceCheck.dataset.marks) || 0;
-    additionalScore = Math.min(Math.max(additionalScore, -5), maxAdditional);
+    if (topicRadio) ProgressScore += parseFloat(topicRadio.dataset.marks) || 0;
+    if (homeworkCheck?.checked) ProgressScore += parseFloat(homeworkCheck.dataset.marks) || 0;
+    if (attendanceCheck?.checked) ProgressScore += parseFloat(attendanceCheck.dataset.marks) || 0;
+    ProgressScore = Math.min(Math.max(ProgressScore, -5), maxProgress);
 
     // --- Validation for non-empty row ---
     let rowIsValid = true;
@@ -1102,16 +1102,16 @@ async function _handleSubmitEvaluation() {
     }
     // --- End Validation ---
 
-    const totalScore = parseFloat((taskScore + teamScore + mcqScore + additionalScore).toFixed(2));
+    const totalScore = parseFloat((taskScore + teamScore + mcqScore + ProgressScore).toFixed(2));
     const cappedTotalScore = Math.min(Math.max(totalScore, 0), totalMaxScore);
 
     scores[studentId] = {
       taskScore,
       teamScore,
-      additionalScore,
+      ProgressScore,
       mcqScore,
       totalScore: cappedTotalScore,
-      additionalCriteria: additionalCriteriaDetails,
+      ProgressCriteria: ProgressCriteriaDetails,
       comments,
       problemRecovered, // Save the status
     };

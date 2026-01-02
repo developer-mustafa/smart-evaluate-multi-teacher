@@ -865,7 +865,7 @@ function _getSubjectColor(subjectName) {
             <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]">
               <i class="fas fa-user-check text-blue-500"></i> অংশগ্রহণ: ${participantsLabel}
             </span>
-            <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]" title="ব্রেকডাউন: টাস্ক-${_bn(task.maxScoreBreakdown?.task ?? 0)}, টিম-${_bn(task.maxScoreBreakdown?.team ?? 0)}, অতিরিক্ত-${_bn(task.maxScoreBreakdown?.additional ?? 0)}, MCQ-${_bn(task.maxScoreBreakdown?.mcq ?? 0)}">
+            <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]" title="ব্রেকডাউন: টাস্ক-${_bn(task.maxScoreBreakdown?.task ?? 0)}, টিম-${_bn(task.maxScoreBreakdown?.team ?? 0)}, অগ্রগতি-${_bn(task.maxScoreBreakdown?.Progress ?? 0)}, MCQ-${_bn(task.maxScoreBreakdown?.mcq ?? 0)}">
               <i class="fas fa-star text-amber-500"></i> মোট: ${_bn(task.maxScore || 100)}
             </span>
             <span class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800/70 px-3 py-1 border border-gray-200/80 dark:border-white/10 shadow-[var(--inner-highlight)]">
@@ -999,7 +999,7 @@ function _normalizeTask(task, evaluations, assignmentNumberMap) {
   const totalMaxScore = task.maxScoreBreakdown
     ? (parseFloat(breakdown.task) || 0) +
       (parseFloat(breakdown.team) || 0) +
-      (parseFloat(breakdown.additional) || 0) +
+      (parseFloat(breakdown.Progress) || 0) +
       (parseFloat(breakdown.mcq) || 0)
     : parseFloat(task.maxScore) || 100;
 

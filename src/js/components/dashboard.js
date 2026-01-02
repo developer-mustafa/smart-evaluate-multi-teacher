@@ -376,7 +376,7 @@ function _getDashboardHTMLStructure() {
               shadow-[inset_0_1px_3px_rgba(255,255,255,0.9),0_4px_8px_rgba(0,0,0,0.15),0_10px_18px_rgba(0,0,0,0.20)]
               transition-all duration-300
               dark:text-rose-100 dark:from-rose-700 dark:via-rose-800 dark:to-rose-900 dark:ring-rose-600/40
-              dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),0_6px_12px_rgba(0,0,0,0.75)]">অতিরিক্ত স্কোর</span>
+              dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.08),0_6px_12px_rgba(0,0,0,0.75)]">অগ্রগতি স্কোর</span>
 
             <span class="relative rounded-2xl px-4 py-1.5
               text-amber-900 bg-gradient-to-b from-amber-50 via-amber-200 to-amber-500
@@ -587,6 +587,9 @@ function _getDashboardHTMLStructure() {
             <span id="latestAssignmentLabel">সর্বশেষ এসাইনমেন্ট</span>    <span class="text-xs text-slate-700 dark:text-white/60">
             অনুষ্ঠিত: <span id="latestAssignmentUpdated">-</span>
           </span>
+          </p>
+          <p id="assignmentScheduledDateContainer" class="text-xs font-bold text-slate-700 dark:text-white/60 hidden" lang="bn">
+            নির্ধারিত তারিখ: <span id="assignmentScheduledDate">-</span>
           </p>
           <p id="latestTaskTitle"
             class="mt-1 max-w-[28rem]  font-bold text-slate-900 dark:text-white text-sm sm:text-lg"
@@ -1030,6 +1033,8 @@ function _cacheInnerDOMElements() {
     'dashboardSubjectFilter',
     'assignmentStatusTitle',
     'latestAssignmentLabel',
+    'assignmentScheduledDateContainer',
+    'assignmentScheduledDate',
   ];
   idsToCache.forEach((id) => {
     elements[id] = elements.page.querySelector(`#${id}`);
@@ -1356,6 +1361,9 @@ function _updateDashboardForTask(taskId) {
       if (elements.latestAssignmentUpdated) {
           elements.latestAssignmentUpdated.textContent = 'হালনাগাদ';
       }
+      if (elements.assignmentScheduledDateContainer) {
+          elements.assignmentScheduledDateContainer.classList.add('hidden');
+      }
 
       // 4. Calculate Global Aggregate Data for Cards (using filtered data)
       // Total possible student-evaluations = Students * Filtered Tasks
@@ -1483,6 +1491,15 @@ function _updateDashboardForTask(taskId) {
             if (elements.latestAssignmentAverageLabelText) {
                 elements.latestAssignmentAverageLabelText.textContent = 'সর্বশেষ এসাইনমেন্ট গড়';
             }
+            if (elements.assignmentScheduledDateContainer && elements.assignmentScheduledDate) {
+                const ts = _getTaskScheduleTimestamp(targetTask);
+                if (ts) {
+                    elements.assignmentScheduledDate.textContent = _formatDateOnly(ts);
+                    elements.assignmentScheduledDateContainer.classList.remove('hidden');
+                } else {
+                    elements.assignmentScheduledDateContainer.classList.add('hidden');
+                }
+            }
         }
     } else {
         // Fallback if no latest task found (e.g. no data)
@@ -1560,6 +1577,16 @@ function _updateDashboardForTask(taskId) {
        // Update Label for Specific Task
        if (elements.latestAssignmentAverageLabelText) {
            elements.latestAssignmentAverageLabelText.textContent = 'এসাইনমেন্ট গড়';
+       }
+       
+       if (elements.assignmentScheduledDateContainer && elements.assignmentScheduledDate) {
+           const ts = _getTaskScheduleTimestamp(targetTask);
+           if (ts) {
+               elements.assignmentScheduledDate.textContent = _formatDateOnly(ts);
+               elements.assignmentScheduledDateContainer.classList.remove('hidden');
+           } else {
+               elements.assignmentScheduledDateContainer.classList.add('hidden');
+           }
        }
     }
   }
@@ -2171,6 +2198,7 @@ function _calculateLatestAssignmentSummary(groups = [], students = [], tasks = [
     groupTotal,
     groupsEvaluated,
     groupsPending,
+    scheduledTs,
   };
 }
 
