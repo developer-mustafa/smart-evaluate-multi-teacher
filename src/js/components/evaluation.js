@@ -1419,7 +1419,21 @@ function _renderDashboardConfig() {
 
   const config = stateManager.getDashboardConfig();
   const tasks = stateManager.get('tasks') || [];
+  const classes = stateManager.get('classes') || [];
+  const sections = stateManager.get('sections') || [];
+  const subjects = stateManager.get('subjects') || [];
   
+  // Deduplicate subjects by name
+  const uniqueSubjects = [];
+  const seenSubjectNames = new Set();
+  subjects.forEach(s => {
+      const name = s.name ? s.name.trim() : '';
+      if (name && !seenSubjectNames.has(name)) {
+          seenSubjectNames.add(name);
+          uniqueSubjects.push(s);
+      }
+  });
+
   // Sort tasks by date (newest first)
   const sortedTasks = [...tasks].sort((a, b) => {
     const dateA = new Date(a.date || 0);
@@ -1447,6 +1461,32 @@ function _renderDashboardConfig() {
       </div>
       
       <div id="forceConfigControls" class="mt-4 pt-4 border-t dark:border-gray-700 transition-all duration-300 ${isForced ? '' : 'hidden opacity-50 pointer-events-none'}">
+          
+          <!-- Filters -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <div>
+                  <label class="block mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">ক্লাস</label>
+                  <select id="configClassFilter" class="form-select w-full text-sm py-1">
+                      <option value="">সকল ক্লাস</option>
+                      ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                  </select>
+              </div>
+              <div>
+                  <label class="block mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">শাখা</label>
+                  <select id="configSectionFilter" class="form-select w-full text-sm py-1">
+                      <option value="">সকল শাখা</option>
+                      ${sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                  </select>
+              </div>
+              <div>
+                  <label class="block mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">বিষয়</label>
+                  <select id="configSubjectFilter" class="form-select w-full text-sm py-1">
+                      <option value="">সকল বিষয়</option>
+                      ${uniqueSubjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                  </select>
+              </div>
+          </div>
+
           <div class="flex flex-col sm:flex-row gap-3 items-end">
             <div class="w-full sm:w-1/2">
                 <label for="forceAssignmentSelect" class="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">এসাইনমেন্ট নির্বাচন করুন</label>
@@ -1471,6 +1511,79 @@ function _renderDashboardConfig() {
   const controls = elements.dashboardConfigContainer.querySelector('#forceConfigControls');
   const saveBtn = elements.dashboardConfigContainer.querySelector('#saveDashboardConfigBtn');
   const select = elements.dashboardConfigContainer.querySelector('#forceAssignmentSelect');
+  
+  const classFilter = elements.dashboardConfigContainer.querySelector('#configClassFilter');
+  const sectionFilter = elements.dashboardConfigContainer.querySelector('#configSectionFilter');
+  const subjectFilter = elements.dashboardConfigContainer.querySelector('#configSubjectFilter');
+
+  // Filter Logic
+  const filterAssignments = () => {
+      const classId = classFilter.value;
+      const sectionId = sectionFilter.value;
+      const subjectId = subjectFilter.value;
+
+      const filtered = sortedTasks.filter(t => {
+          if (classId && t.classId !== classId) return false;
+          if (sectionId && t.sectionId !== sectionId) return false;
+          
+          // Subject filter: match by ID or Name (since we deduplicated by name)
+          if (subjectId) {
+              if (t.subjectId === subjectId) return true;
+              // Check name match
+              const selectedSubject = subjects.find(s => s.id === subjectId);
+              const taskSubject = subjects.find(s => s.id === t.subjectId);
+              if (selectedSubject && taskSubject && selectedSubject.name.trim() === taskSubject.name.trim()) return true;
+              return false;
+          }
+          
+          return true;
+      });
+
+      // Update Select
+      const currentVal = select.value;
+      select.innerHTML = `<option value="" disabled>এসাইনমেন্ট বেছে নিন...</option>` + 
+          filtered.map(t => `<option value="${t.id}" ${t.id === currentVal ? 'selected' : ''}>${t.name}</option>`).join('');
+      
+      // Restore selection if valid
+      if (currentVal && filtered.find(t => t.id === currentVal)) {
+          select.value = currentVal;
+      } else {
+          select.value = "";
+      }
+  };
+
+  classFilter.addEventListener('change', filterAssignments);
+  sectionFilter.addEventListener('change', filterAssignments);
+  subjectFilter.addEventListener('change', filterAssignments);
+
+  // Pre-select filters if forced assignment exists
+  if (forcedId) {
+      const forcedTask = tasks.find(t => t.id === forcedId);
+      if (forcedTask) {
+          if (forcedTask.classId) classFilter.value = forcedTask.classId;
+          if (forcedTask.sectionId) sectionFilter.value = forcedTask.sectionId;
+          
+          // For subject, we need to find the matching option in our unique list
+          if (forcedTask.subjectId) {
+              // Try direct ID match first
+              if (uniqueSubjects.find(s => s.id === forcedTask.subjectId)) {
+                  subjectFilter.value = forcedTask.subjectId;
+              } else {
+                  // Try name match
+                  const taskSubject = subjects.find(s => s.id === forcedTask.subjectId);
+                  if (taskSubject) {
+                      const matchingUnique = uniqueSubjects.find(s => s.name.trim() === taskSubject.name.trim());
+                      if (matchingUnique) subjectFilter.value = matchingUnique.id;
+                  }
+              }
+          }
+          
+          // Trigger filter to update assignment list and ensure consistency
+          filterAssignments();
+          // Ensure forced ID is selected
+          select.value = forcedId;
+      }
+  }
 
   toggle.addEventListener('change', async (e) => {
       const checked = e.target.checked;

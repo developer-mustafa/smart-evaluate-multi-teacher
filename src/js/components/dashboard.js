@@ -245,6 +245,11 @@ export function render() {
     // Setup Dashboard Filters (Admin) and Teacher Info
     _setupDashboardFilters();
 
+    // Apply settings (visibility toggles)
+    if (app.components.settings) {
+        app.components.settings.applySettings();
+    }
+
     console.log('✅ Dashboard rendered successfully.');
   } catch (error) {
     console.error('❌ Error rendering dashboard:', error);
@@ -1018,7 +1023,11 @@ function _cacheInnerDOMElements() {
     'topGroupsContainer',
     'academicGroupStatsList',
     'groupsRankingList',
+    'groupsRankingList',
     'dashboardAssignmentFilter', // Cache the filter
+    'dashboardClassFilter',
+    'dashboardSectionFilter',
+    'dashboardSubjectFilter',
     'assignmentStatusTitle',
     'latestAssignmentLabel',
   ];
@@ -1065,10 +1074,45 @@ function _populateAssignmentFilter(tasks) {
       // Force the selection
       elements.dashboardAssignmentFilter.value = dashboardConfig.forceAssignmentId;
       elements.dashboardAssignmentFilter.disabled = true; 
+      
+      // Disable other filters
+      if (elements.dashboardClassFilter) elements.dashboardClassFilter.disabled = true;
+      if (elements.dashboardSectionFilter) elements.dashboardSectionFilter.disabled = true;
+      if (elements.dashboardSubjectFilter) elements.dashboardSubjectFilter.disabled = true;
+
+      // Visually select the Class/Section/Subject of the forced task
+      const forcedTask = tasks.find(t => t.id === dashboardConfig.forceAssignmentId);
+      if (forcedTask) {
+          if (elements.dashboardClassFilter && forcedTask.classId) {
+              elements.dashboardClassFilter.value = forcedTask.classId;
+              // Manually trigger change event to populate sections
+              elements.dashboardClassFilter.dispatchEvent(new Event('change'));
+          }
+          
+          if (elements.dashboardSectionFilter && forcedTask.sectionId) {
+              // We need to wait for the event listener to populate the sections. 
+              // Since it's synchronous in _populateDashboardFilters, we can just set it.
+              // However, let's ensure the option exists.
+              // If the section is not in the list (e.g. mismatch), this won't work.
+              // But assuming data integrity, it should work after the dispatchEvent.
+              elements.dashboardSectionFilter.value = forcedTask.sectionId;
+          }
+          
+          if (elements.dashboardSubjectFilter && forcedTask.subjectId) {
+              elements.dashboardSubjectFilter.value = forcedTask.subjectId;
+          }
+      }
+
       console.log('🔒 Dashboard forced to assignment:', dashboardConfig.forceAssignmentId);
       _updateDashboardForTask(dashboardConfig.forceAssignmentId);
   } else {
       elements.dashboardAssignmentFilter.disabled = false;
+      
+      // Enable other filters
+      if (elements.dashboardClassFilter) elements.dashboardClassFilter.disabled = false;
+      if (elements.dashboardSectionFilter) elements.dashboardSectionFilter.disabled = false;
+      if (elements.dashboardSubjectFilter) elements.dashboardSubjectFilter.disabled = false;
+
       elements.dashboardAssignmentFilter.value = currentFilterValue;
       _updateDashboardForTask(currentFilterValue);
   }
