@@ -355,6 +355,23 @@ details[open] .prereq-summary-icon {
   color: inherit; /* Inherit color from parent hover state */
 }
 
+/* === Public vs Private Tab Grouping === */
+/* Public Tabs (Green) */
+.nav-btn:not(.private-tab):not(.active-nav-btn) {
+  background-color: #f0fdf4; /* green-50 */
+}
+.dark .nav-btn:not(.private-tab):not(.active-nav-btn) {
+  background-color: rgba(22, 163, 74, 0.15); /* green-600/15 */
+}
+
+/* Private Tabs (Red) */
+.nav-btn.private-tab:not(.active-nav-btn) {
+  background-color: #fef2f2; /* red-50 */
+}
+.dark .nav-btn.private-tab:not(.active-nav-btn) {
+  background-color: rgba(220, 38, 38, 0.15); /* red-600/15 */
+}
+
 /* Active Navigation Button Style */
 .active-nav-btn {
   background-color: rgba(59, 130, 246, 0.15); /* Light blue background */

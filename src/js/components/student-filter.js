@@ -281,7 +281,7 @@ export function render() {
                 <th class="px-6 py-3 font-semibold tracking-wider">সেশন</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">দায়িত্ব</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">অবস্থা</th>
-                <th class="px-6 py-3 font-semibold tracking-wider">যোগাযোগ</th>
+
                 <th class="px-6 py-3 text-center font-semibold tracking-wider" id="sfScoreHeader">গড় ফলাফল</th>
               </tr>
             </thead>
@@ -786,11 +786,11 @@ function _applyFiltersAndRender() {
       let genderDisplay = '-';
       const gender = (s.gender || '').trim();
       if (gender === 'ছেলে' || gender.toLowerCase() === 'male') {
-        genderDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">ছেলে</span>';
+        genderDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">ছেলে</span>';
       } else if (gender === 'মেয়ে' || gender.toLowerCase() === 'female') {
-        genderDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300">মেয়ে</span>';
+        genderDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-800 dark:text-pink-100">মেয়ে</span>';
       } else if (gender) {
-        genderDisplay = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">${gender}</span>`;
+        genderDisplay = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">${gender}</span>`;
       }
 
       // Status Calculation
@@ -842,7 +842,7 @@ function _applyFiltersAndRender() {
         <td class="px-6 py-3">${s.session || '-'}</td>
         <td class="px-6 py-3 whitespace-nowrap">${_renderRoleBadge(s.role)}</td>
         <td class="px-6 py-3 whitespace-nowrap">${statusDisplay}</td>
-        <td class="px-6 py-3 text-xs text-gray-500 dark:text-gray-400">${s.contact || '-'}</td>
+
         <td class="px-6 py-3 text-center font-medium">${avgDisplay}</td>
         ${activeFilters.assignment !== 'all' ? `<td class="px-6 py-3 text-center ${specificClass}">${specificDisplay}</td>` : ''}
       `;
@@ -1003,9 +1003,9 @@ function _getAcademicColor(group) {
 function _renderAcademicBadge(group) {
     if (!group) return '-';
     const colors = {
-        'Science': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-        'Business Studies': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-        'Humanities': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+        'Science': 'bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100',
+        'Business Studies': 'bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100',
+        'Humanities': 'bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100'
     };
     // Default fallback
     let cls = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
@@ -1021,11 +1021,11 @@ function _renderAcademicBadge(group) {
 function _renderRoleBadge(role) {
     if (!role) return '-';
     const map = {
-        'team-leader': { label: 'টিম লিডার', cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
-        'time-keeper': { label: 'টাইম কিপার', cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' },
-        'reporter': { label: 'রিপোর্টার', cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-        'resource-manager': { label: 'রিসোর্স ম্যানেজার', cls: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300' },
-        'peace-maker': { label: 'পিস মেকার', cls: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300' }
+        'team-leader': { label: 'টিম লিডার', cls: 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100' },
+        'time-keeper': { label: 'টাইম কিপার', cls: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100' },
+        'reporter': { label: 'রিপোর্টার', cls: 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' },
+        'resource-manager': { label: 'রিসোর্স ম্যানেজার', cls: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-800 dark:text-indigo-100' },
+        'peace-maker': { label: 'পিস মেকার', cls: 'bg-pink-100 text-pink-800 dark:bg-pink-800 dark:text-pink-100' }
     };
     const info = map[role] || { label: role, cls: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' };
     return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${info.cls}">${info.label}</span>`;

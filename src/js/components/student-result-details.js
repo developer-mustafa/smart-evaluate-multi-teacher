@@ -290,7 +290,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     setText('sdmAcademic', student.academicGroup ? `শিক্ষা বিভাগ: ${student.academicGroup}` : '');
     setText('sdmSession', student.session ? `সেশন: ${student.session}` : '');
     const hasContact = Boolean(student.email) || Boolean(student.contact);
-    setText('sdmContact', hasContact ? `যোগাযোগ: ${student.email || ''} ${student.contact || ''}` : '');
+    setText('sdmContact', '');
 
     // Clean Bengali labels (override)
     setText('sdmGroup', groupName ? `গ্রুপ: ${groupName}` : '');
@@ -298,7 +298,7 @@ import { collection, query, where, limit, getDocs, doc, getDoc } from 'firebase/
     setText('sdmSection', sectionName ? `শাখা: ${sectionName}` : '');
     setText('sdmAcademic', student.academicGroup ? `শিক্ষা বিভাগ: ${student.academicGroup}` : '');
     setText('sdmSession', student.session ? `সেশন: ${student.session}` : '');
-    setText('sdmContact', (Boolean(student.email)||Boolean(student.contact)) ? `যোগাযোগ: ${student.email || ''} ${student.contact || ''}` : '');
+    setText('sdmContact', '');
     setText('sdmAvgTotal', fmt(avgTotal));
     setText('sdmAvgPct', `${fmt(avgPct, 1)}%`);
     setText('sdmRank', rankLabel);
