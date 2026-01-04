@@ -445,7 +445,30 @@
                      return '-';
                   })()}
                 </td>
-                <td class="px-3 py-2 comments-cell">${escHtml(shortC)}</td>`;
+                 <td class="px-3 py-2 comments-cell align-middle">
+                    ${(() => {
+                        let displayComment = r.comment;
+                        
+                        if (!displayComment) {
+                            if (r.pct < 33) displayComment = 'দুঃখজনক! পুনঃ চেষ্টা কর...';
+                            else if (r.pct < 60) displayComment = 'চেষ্টা দেখে আনন্দিত.!';
+                            else if (r.pct < 80) displayComment = 'খুব ভালো অগ্রগতি!';
+                            else displayComment = 'অসাধারন অগ্রগতি!';
+                        }
+                        
+                        // Styling based on percentage/content
+                        let styleClass = 'text-gray-600 dark:text-gray-400';
+                        if (r.pct < 33) styleClass = 'text-red-600 dark:text-red-400 font-medium';
+                        else if (r.pct < 60) styleClass = 'text-amber-600 dark:text-amber-400';
+                        else if (r.pct < 80) styleClass = 'text-blue-600 dark:text-blue-400';
+                        else styleClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
+                        
+                        // Truncate if too long (though auto comments are short)
+                        const shortText = displayComment.length > 60 ? displayComment.slice(0, 57) + '...' : displayComment;
+                        
+                        return `<div class="text-[11px] leading-tight ${styleClass} max-w-[150px] whitespace-normal break-words">${escHtml(shortText)}</div>`;
+                    })()}
+                 </td>`;
               frag2.appendChild(tr);
             });
 

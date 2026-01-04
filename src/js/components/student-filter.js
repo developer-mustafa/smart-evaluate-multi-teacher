@@ -33,6 +33,7 @@ const EXTRA_FILTERS = [
   { id: 'topic_learned_well', text: 'ভালো করে শিখেছি (+১০)', type: 'topic' },
   { id: 'homework_done', text: 'সপ্তাহে প্রতিদিন বাড়ির কাজ করেছি (+৫)', type: 'option' },
   { id: 'attendance_regular', text: 'সাপ্তাহিক নিয়মিত উপস্থিতি (+১০)', type: 'option' },
+  { id: 'status_absent', text: 'অনুপস্থিত শিক্ষার্থী', type: 'status' },
   { id: 'problem_resolved', text: 'প্রবলেম রিজলভড', type: 'status' },
   { id: 'has_problem', text: 'সমস্যা আছে', type: 'status' },
 ];
@@ -280,7 +281,7 @@ export function render() {
                 <th class="px-6 py-3 font-semibold tracking-wider">একাডেমিক গ্রুপ</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">সেশন</th>
                 <th class="px-6 py-3 font-semibold tracking-wider">দায়িত্ব</th>
-                <th class="px-6 py-3 font-semibold tracking-wider">অবস্থা</th>
+                <th class="px-6 py-3 font-semibold tracking-wider" id="sfStatusHeader">অবস্থা</th>
 
                 <th class="px-6 py-3 text-center font-semibold tracking-wider" id="sfScoreHeader">গড় ফলাফল</th>
               </tr>
@@ -609,6 +610,23 @@ function _applyFiltersAndRender() {
       for (const filterId of activeFilters.extra) {
          if (filterId === 'unevaluated') {
              if (studentEvaluations.length > 0) return false;
+         } else if (filterId === 'status_absent') {
+             // Absent Student: No evaluation data found for the selected assignment
+             if (activeFilters.assignment !== 'all') {
+                 const assignEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+                 if (assignEval) return false; // Has evaluation, so NOT absent
+                 return true; // No evaluation, so IS absent
+             } else {
+                 // If "All" is selected, "Absent" means "Has NO evaluations at all" (same as unevaluated)
+                 // OR we could define it as "Absent in ANY assignment". 
+                 // Given the context, "Absent" usually applies to a specific exam/task.
+                 // Let's stick to "Has NO evaluations" for consistency with "Unevaluated", 
+                 // or if the user wants to see students who were absent in *at least one* exam.
+                 // Re-reading user request: "যাদের কোন মূল্যায়ন করা হয়নি তাদের কারণে... অনুপস্থিত হিসেবে দেখাবে"
+                 // This implies "Absent" = "No Data" for the current context.
+                 if (studentEvaluations.length > 0) return false;
+                 return true;
+             }
          } else if (filterId === 'absent_task') {
              // Task Absent: Missing taskScore
              if (activeFilters.assignment !== 'all') {
@@ -644,7 +662,16 @@ function _applyFiltersAndRender() {
                  if (!hasResolved) return false;
 
                  const hasActiveProblem = studentEvaluations.some(e => {
-                     const topic = e.ProgressCriteria?.topic;
+                     let details = e.ProgressCriteria || e.progressCriteria || e.criteria || e.progress || e.additionalCriteria || {};
+                     if (Object.keys(details).length === 0 && (e.topic || e.homework || e.attendance)) details = e;
+                     
+                     const savedProgressScore = parseFloat(e.ProgressScore) || parseFloat(e.progressScore) || parseFloat(e.additionalScore) || 0;
+                     if (Object.keys(details).length === 0 && savedProgressScore !== 0) {
+                        if (savedProgressScore === 5) details = { topic: 'topic_understood' };
+                        else if (savedProgressScore === -5) details = { topic: 'topic_none' };
+                     }
+
+                     const topic = details.topic || details.Topic;
                      const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
                      return isProblematic && !e.problemRecovered;
                  });
@@ -661,7 +688,19 @@ function _applyFiltersAndRender() {
              } else {
                  // Has Problem: (topic_understood OR topic_none) AND !problemRecovered
                  const hasProblem = studentEvaluations.some(e => {
-                     const topic = e.ProgressCriteria?.topic;
+                     let details = e.ProgressCriteria || e.progressCriteria || e.criteria || e.progress || e.additionalCriteria || {};
+                     // Check for flat structure
+                     if (Object.keys(details).length === 0 && (e.topic || e.homework || e.attendance)) {
+                         details = e;
+                     }
+                     // Auto-Recovery (Simplified for problem check)
+                     const savedProgressScore = parseFloat(e.ProgressScore) || parseFloat(e.progressScore) || parseFloat(e.additionalScore) || 0;
+                     if (Object.keys(details).length === 0 && savedProgressScore !== 0) {
+                        if (savedProgressScore === 5) details = { topic: 'topic_understood' };
+                        else if (savedProgressScore === -5) details = { topic: 'topic_none' };
+                     }
+
+                     const topic = details.topic || details.Topic;
                      const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
                      return isProblematic && !e.problemRecovered;
                  });
@@ -670,21 +709,42 @@ function _applyFiltersAndRender() {
          } else {
              // Check for specific criteria in ANY evaluation
              const hasCriteria = studentEvaluations.some(e => {
-                 const details = e.ProgressCriteria || {};
+                 let details = e.ProgressCriteria || e.progressCriteria || e.criteria || e.progress || e.additionalCriteria || {};
+                 
+                 // Check for flat structure
+                 if (Object.keys(details).length === 0 && (e.topic || e.homework || e.attendance)) {
+                     details = e;
+                 }
+
+                 // Auto-Recovery from Score (Heuristic) for Filter
+                 const savedProgressScore = parseFloat(e.ProgressScore) || parseFloat(e.progressScore) || parseFloat(e.additionalScore) || 0;
+                 if (Object.keys(details).length === 0 && savedProgressScore !== 0) {
+                    if (savedProgressScore === 25) details = { topic: 'topic_learned_well', attendance: true, homework: true };
+                    else if (savedProgressScore === 20) details = { topic: 'topic_learned_well', attendance: true };
+                    else if (savedProgressScore === 15) details = { topic: 'topic_learned_well', homework: true };
+                    else if (savedProgressScore === 10) details = { topic: 'topic_learned_well' };
+                    else if (savedProgressScore === 5) details = { topic: 'topic_understood' };
+                    else if (savedProgressScore === -5) details = { topic: 'topic_none' };
+                 }
+
+                 if (typeof details === 'string') {
+                    try { details = JSON.parse(details); } catch (e) { }
+                 }
                  
                  // Topic Check
                  if (filterId.startsWith('topic_')) {
-                     return details.topic === filterId;
+                     const topic = details.topic || details.Topic;
+                     return topic === filterId;
                  }
                  
                  // Homework Check
                  if (filterId === 'homework_done') {
-                     return details.homework === true;
+                     return details.homework === true || details.Homework === true || details.homework_done === true;
                  }
                  
                  // Attendance Check
                  if (filterId === 'attendance_regular') {
-                     return details.attendance === true;
+                     return details.attendance === true || details.Attendance === true || details.attendance_regular === true;
                  }
 
                  return false;
@@ -735,6 +795,7 @@ function _applyFiltersAndRender() {
     const thead = elements.container.querySelector('thead tr');
     let specificTh = thead.querySelector('#sfSpecificScoreHeader');
     
+    // Add/Remove Specific Assignment Score Header
     if (activeFilters.assignment !== 'all') {
         if (!specificTh) {
             specificTh = document.createElement('th');
@@ -746,6 +807,24 @@ function _applyFiltersAndRender() {
     } else {
         if (specificTh) specificTh.remove();
     }
+
+    // Add Attendance Column Header if not present
+    let attendanceTh = thead.querySelector('#sfAttendanceHeader');
+    if (!attendanceTh) {
+        attendanceTh = document.createElement('th');
+        attendanceTh.id = 'sfAttendanceHeader';
+        attendanceTh.className = 'px-6 py-3 text-center font-semibold tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap';
+        attendanceTh.textContent = 'উপস্থিতি';
+        
+        // Insert before Average Score Header
+        const avgTh = thead.querySelector('#sfScoreHeader');
+        if (avgTh) {
+            thead.insertBefore(attendanceTh, avgTh);
+        } else {
+            thead.appendChild(attendanceTh);
+        }
+    }
+
 
     filtered.forEach((s, index) => {
       const tr = document.createElement('tr');
@@ -799,25 +878,47 @@ function _applyFiltersAndRender() {
       let hasProblem = false;
       let hasResolved = false;
 
+      // Check status across all evaluations or specific assignment
       if (activeFilters.assignment !== 'all') {
-          const assignEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
-          if (assignEval) {
-              const topic = assignEval.ProgressCriteria?.topic;
+          const targetEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+          if (targetEval) {
+              let details = targetEval.ProgressCriteria || targetEval.progressCriteria || targetEval.criteria || targetEval.progress || targetEval.additionalCriteria || {};
+              if (Object.keys(details).length === 0 && (targetEval.topic || targetEval.homework || targetEval.attendance)) details = targetEval;
+              
+              const savedProgressScore = parseFloat(targetEval.ProgressScore) || parseFloat(targetEval.progressScore) || parseFloat(targetEval.additionalScore) || 0;
+              if (Object.keys(details).length === 0 && savedProgressScore !== 0) {
+                 if (savedProgressScore === 5) details = { topic: 'topic_understood' };
+                 else if (savedProgressScore === -5) details = { topic: 'topic_none' };
+              }
+
+              const topic = details.topic || details.Topic;
               const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
-              if (isProblematic && !assignEval.problemRecovered) hasProblem = true;
-              if (assignEval.problemRecovered) hasResolved = true;
+              
+              if (targetEval.problemRecovered) {
+                  hasResolved = true;
+              } else if (isProblematic) {
+                  hasProblem = true;
+              }
           }
       } else {
-          // Check all evaluations
+          // Global Status
+          hasResolved = studentEvaluations.some(e => e.problemRecovered === true);
+          
+          // Check if there are any UNRESOLVED problems
           hasProblem = studentEvaluations.some(e => {
-              const topic = e.ProgressCriteria?.topic;
+              let details = e.ProgressCriteria || e.progressCriteria || e.criteria || e.progress || e.additionalCriteria || {};
+              if (Object.keys(details).length === 0 && (e.topic || e.homework || e.attendance)) details = e;
+              
+              const savedProgressScore = parseFloat(e.ProgressScore) || parseFloat(e.progressScore) || parseFloat(e.additionalScore) || 0;
+              if (Object.keys(details).length === 0 && savedProgressScore !== 0) {
+                 if (savedProgressScore === 5) details = { topic: 'topic_understood' };
+                 else if (savedProgressScore === -5) details = { topic: 'topic_none' };
+              }
+
+              const topic = details.topic || details.Topic;
               const isProblematic = (topic === 'topic_understood' || topic === 'topic_none');
               return isProblematic && !e.problemRecovered;
           });
-          
-          if (!hasProblem) {
-              hasResolved = studentEvaluations.some(e => e.problemRecovered === true);
-          }
       }
 
       if (hasProblem) {
@@ -828,6 +929,19 @@ function _applyFiltersAndRender() {
           statusDisplay = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
             <i class="fas fa-check-circle"></i> রিজলভড
           </span>`;
+      }
+
+      // Attendance Status Logic
+      let attendanceDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100">অনুপস্থিত</span>';
+      if (activeFilters.assignment !== 'all') {
+          const assignEval = studentEvaluations.find(e => e.taskId === activeFilters.assignment);
+          if (assignEval) {
+               attendanceDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">উপস্থিত</span>';
+          }
+      } else {
+          if (studentEvaluations.length > 0) {
+               attendanceDisplay = '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">উপস্থিত</span>';
+          }
       }
 
       tr.innerHTML = `
@@ -842,7 +956,7 @@ function _applyFiltersAndRender() {
         <td class="px-6 py-3">${s.session || '-'}</td>
         <td class="px-6 py-3 whitespace-nowrap">${_renderRoleBadge(s.role)}</td>
         <td class="px-6 py-3 whitespace-nowrap">${statusDisplay}</td>
-
+        <td class="px-6 py-3 whitespace-nowrap text-center">${attendanceDisplay}</td>
         <td class="px-6 py-3 text-center font-medium">${avgDisplay}</td>
         ${activeFilters.assignment !== 'all' ? `<td class="px-6 py-3 text-center ${specificClass}">${specificDisplay}</td>` : ''}
       `;
@@ -899,7 +1013,7 @@ function _renderChart(students, evaluations) {
     // Sort by Score Descending (Ranking)
     chartData.sort((a, b) => b.score - a.score);
 
-    const labels = chartData.map(d => d.name); // Just name for cleaner look, or `${d.name} (${d.roll})`
+    const labels = chartData.map(d => `${d.name} (${helpers.convertToBanglaNumber(d.roll)})`);
     const dataPoints = chartData.map(d => d.score);
     const backgroundColors = chartData.map(d => _getAcademicColor(d.academicGroup));
 

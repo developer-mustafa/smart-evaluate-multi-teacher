@@ -707,17 +707,169 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
   const classesMap = new Map(classes.map(c => [c.id, c]));
   const sectionsMap = new Map(sections.map(s => [s.id, s]));
 
-  let formHtml = `
-    <form id="dynamicEvaluationForm" class="card card-body space-y-6">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 dark:border-gray-600">
-             <h3 class="text-xl font-semibold text-gray-800 dark:text-white">
-                 ${existingScores ? 'সম্পাদনা' : 'নতুন মূল্যায়ন'}: ${helpers.ensureBengaliText(
-    task.name
-  )} - ${helpers.ensureBengaliText(group.name)}
-             </h3>
-             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-0" title="টাস্ক-${maxTask}, টিম-${maxTeam}, অতি-${maxProgress}, MCQ-${maxMcq}">
-                 মোট সর্বোচ্চ স্কোর: ${helpers.convertToBanglaNumber(totalMaxScore)}
-             </p>
+    // Calculate Stats
+    const totalStudents = students.length;
+    const presentCount = students.filter(s => existingScores && existingScores[s.id]).length;
+    const absentCount = totalStudents - presentCount;
+
+    // Calculate Extended Stats
+    let totalAcquiredScore = 0;
+    let problemCount = 0;
+    let resolvedCount = 0;
+
+    if (existingScores) {
+        Object.values(existingScores).forEach(score => {
+            totalAcquiredScore += (score.totalScore || 0);
+            if (score.problemRecovered) {
+                resolvedCount++;
+            } else {
+                 // Problem Count: Count if problem is NOT resolved (unchecked)
+                 problemCount++;
+            }
+        });
+    }
+
+    const averageScore = presentCount > 0 ? (totalAcquiredScore / presentCount) : 0;
+
+    // Rank Calculation
+    let groupRank = '-';
+    const allEvaluations = stateManager.get('evaluations') || [];
+    const taskEvaluations = allEvaluations.filter(e => e.taskId === task.id);
+    
+    const groupStats = {};
+    taskEvaluations.forEach(e => {
+        let sum = 0;
+        let count = 0;
+        if (e.scores) {
+            Object.values(e.scores).forEach(s => {
+                sum += (s.totalScore || 0);
+                count++;
+            });
+        }
+        const avg = count > 0 ? sum / count : 0;
+        groupStats[e.groupId] = avg;
+    });
+
+    const sortedGroups = Object.entries(groupStats).sort(([, avgA], [, avgB]) => avgB - avgA);
+    const rankIndex = sortedGroups.findIndex(([gId]) => gId === group.id);
+    if (rankIndex !== -1) {
+        groupRank = helpers.convertToBanglaNumber(rankIndex + 1);
+    }
+
+    // Subject Name Resolution
+    let subjectName = '';
+    const subjects = stateManager.get('subjects') || [];
+    const subjectIdentifier = task.subjectId || task.subject;
+
+    if (subjectIdentifier) {
+        const subjectObj = subjects.find(s => s.id === subjectIdentifier || s.name === subjectIdentifier);
+        if (subjectObj) {
+            subjectName = subjectObj.name;
+        } else {
+            // If not found in list, use the identifier itself if it's likely a name
+            subjectName = subjectIdentifier;
+        }
+    }
+
+    // Subject Colors
+    const SUBJECT_COLORS = {
+        'Math': 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border border-rose-200 dark:border-rose-800',
+        'Bangla': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800',
+        'English': 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300 border border-sky-200 dark:border-sky-800',
+        'Science': 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 border border-violet-200 dark:border-violet-800',
+        'History': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800',
+        'BGS': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800',
+        'Religion': 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300 border border-teal-200 dark:border-teal-800',
+        'Wellbeing': 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300 border border-pink-200 dark:border-pink-800',
+        'Art': 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300 border border-lime-200 dark:border-lime-800',
+        'Digital Tech': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800',
+        'default': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
+    };
+
+    // Helper to get color (fuzzy match or exact)
+    const getSubjectColor = (name) => {
+        if (!name) return SUBJECT_COLORS['default'];
+        const key = Object.keys(SUBJECT_COLORS).find(k => name.includes(k)) || 'default';
+        return SUBJECT_COLORS[key];
+    };
+
+    const subjectColorClass = getSubjectColor(subjectName);
+
+    let formHtml = `
+    <form id="dynamicEvaluationForm" class="card card-body space-y-6" data-task-id="${task.id}" data-group-id="${group.id}">
+        <div class="flex flex-col sm:flex-row justify-between items-start border-b pb-4 dark:border-gray-600 gap-4">
+             <div>
+                 <h3 class="text-xl font-semibold text-gray-800 dark:text-white">
+                     ${existingScores ? 'সম্পাদনা' : 'নতুন মূল্যায়ন'}: ${helpers.ensureBengaliText(
+        task.name
+      )} (${helpers.ensureBengaliText(subjectName)}) - <span class="text-amber-900 dark:text-amber-500">${helpers.ensureBengaliText(group.name)}</span>
+                 </h3>
+                 <div class="flex flex-wrap gap-3 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200 border border-blue-100 dark:border-blue-700">
+                        মোট শিক্ষার্থী: ${helpers.convertToBanglaNumber(totalStudents)}
+                    </span>
+                    <span class="px-2 py-0.5 rounded bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-200 border border-green-100 dark:border-green-700">
+                        উপস্থিত: ${helpers.convertToBanglaNumber(presentCount)}
+                    </span>
+                    <span class="px-2 py-0.5 rounded bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-200 border border-red-100 dark:border-red-700">
+                        অনুপস্থিত: ${helpers.convertToBanglaNumber(absentCount)}
+                    </span>
+                 </div>
+                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                 <!-- Average Score -->
+                 <div class="bg-indigo-50 dark:bg-indigo-900 border border-indigo-100 dark:border-indigo-700 rounded-lg p-4 flex items-center justify-between">
+                     <div>
+                         <p class="text-sm text-indigo-600 dark:text-indigo-300 font-medium">গড় স্কোর</p>
+                         <p class="text-2xl font-bold text-indigo-700 dark:text-indigo-100 mt-1">${helpers.convertToBanglaNumber(averageScore.toFixed(2))}</p>
+                     </div>
+                     <div class="p-3 bg-indigo-100 dark:bg-indigo-800 rounded-full text-indigo-600 dark:text-indigo-200">
+                         <i class="fas fa-chart-line text-lg"></i>
+                     </div>
+                 </div>
+
+                 <!-- Rank -->
+                 <div class="bg-fuchsia-50 dark:bg-fuchsia-900 border border-fuchsia-100 dark:border-fuchsia-700 rounded-lg p-4 flex items-center justify-between">
+                     <div>
+                         <p class="text-sm text-fuchsia-600 dark:text-fuchsia-300 font-medium">র‍্যাংক</p>
+                         <p class="text-2xl font-bold text-fuchsia-700 dark:text-fuchsia-100 mt-1">${groupRank}</p>
+                     </div>
+                     <div class="p-3 bg-fuchsia-100 dark:bg-fuchsia-800 rounded-full text-fuchsia-600 dark:text-fuchsia-200">
+                         <i class="fas fa-trophy text-lg"></i>
+                     </div>
+                 </div>
+
+                 <!-- Problems -->
+                 <div class="bg-orange-50 dark:bg-orange-900 border border-orange-100 dark:border-orange-700 rounded-lg p-4 flex items-center justify-between">
+                     <div>
+                         <p class="text-sm text-orange-600 dark:text-orange-300 font-medium">সমস্যা আছে</p>
+                         <p class="text-2xl font-bold text-orange-700 dark:text-orange-100 mt-1">${helpers.convertToBanglaNumber(problemCount)}</p>
+                     </div>
+                     <div class="p-3 bg-orange-100 dark:bg-orange-800 rounded-full text-orange-600 dark:text-orange-200">
+                         <i class="fas fa-exclamation-circle text-lg"></i>
+                     </div>
+                 </div>
+
+                 <!-- Resolved -->
+                 <div class="bg-teal-50 dark:bg-teal-900 border border-teal-100 dark:border-teal-700 rounded-lg p-4 flex items-center justify-between">
+                     <div>
+                         <p class="text-sm text-teal-600 dark:text-teal-300 font-medium">মোট প্রবলেম রিজলভড</p>
+                         <p class="text-2xl font-bold text-teal-700 dark:text-teal-100 mt-1">${helpers.convertToBanglaNumber(resolvedCount)}</p>
+                     </div>
+                     <div class="p-3 bg-teal-100 dark:bg-teal-800 rounded-full text-teal-600 dark:text-teal-200">
+                         <i class="fas fa-check-circle text-lg"></i>
+                     </div>
+                 </div>
+             </div>
+             </div>
+             <div class="flex flex-col items-end gap-2 min-w-[120px]">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${subjectColorClass}">
+                    ${helpers.ensureBengaliText(subjectName)}
+                </span>
+                <div class="text-right" title="টাস্ক-${maxTask}, টিম-${maxTeam}, অতি-${maxProgress}, MCQ-${maxMcq}">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">মোট সর্বোচ্চ স্কোর</p>
+                    <p class="text-2xl font-bold text-gray-800 dark:text-white">${helpers.convertToBanglaNumber(totalMaxScore)}</p>
+                </div>
+             </div>
         </div>
         <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -735,13 +887,11 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                           maxMcq
                         )})</th>
                         <th scope="col" class="th text-center w-4/12">
-                          <div class="flex flex-col items-center gap-1">
-                            <span>অগ্রগতি ক্রাইটেরিয়া (সর্বোচ্চ ${helpers.convertToBanglaNumber(
-                              maxProgress
-                            )})</span>
-                            <button type="button" id="unmarkAllCriteriaBtn" class="px-2 py-0.5 text-[10px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 rounded border border-rose-200 dark:border-rose-800 transition-colors">
-                              <i class="fas fa-times-circle text-[9px]"></i> আনমার্কড অল
-                            </button>
+                          <div class="flex flex-col items-center justify-center gap-1">
+                                <span>ক্রাইটেরিয়া (সর্বোচ্চ ${helpers.convertToBanglaNumber(maxProgress)})</span>
+                                <button type="button" id="unmarkAllCriteriaBtn" class="px-2 py-0.5 text-[10px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 rounded border border-rose-200 dark:border-rose-800 transition-colors">
+                                  <i class="fas fa-times-circle text-[9px]"></i> আনমার্কড অল
+                                </button>
                           </div>
                         </th>
                         <th scope="col" class="th text-center w-1/12">মন্তব্য</th>
@@ -756,10 +906,55 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
   students.forEach((student, index) => {
     const scoreData = existingScores ? existingScores[student.id] : null;
     const rowClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700';
-    const criteriaDetails = scoreData?.ProgressCriteria || {};
-    const topicChoice = criteriaDetails.topic || '';
-    const homeworkChecked = criteriaDetails.homework || false;
-    const attendanceChecked = criteriaDetails.attendance || false;
+    let criteriaDetails = scoreData?.ProgressCriteria || scoreData?.progressCriteria || scoreData?.criteria || scoreData?.progress || scoreData?.additionalCriteria || {};
+    
+    // Check for flat structure (if topic is directly on scoreData)
+    if (Object.keys(criteriaDetails).length === 0 && scoreData && (scoreData.topic || scoreData.homework || scoreData.attendance)) {
+        criteriaDetails = scoreData;
+    }
+
+    // Auto-Recovery from Score (Heuristic)
+    // Check for ProgressScore, progressScore, or additionalScore
+    const savedProgressScore = scoreData ? (parseFloat(scoreData.ProgressScore) || parseFloat(scoreData.progressScore) || parseFloat(scoreData.additionalScore) || 0) : 0;
+    
+    if (Object.keys(criteriaDetails).length === 0 && savedProgressScore !== 0) {
+        console.warn(`[Auto-Recovery] Recovering criteria for student ${student.id} from score: ${savedProgressScore}`);
+        if (savedProgressScore === 25) {
+            criteriaDetails = { topic: 'topic_learned_well', attendance: true, homework: true };
+        } else if (savedProgressScore === 20) {
+            criteriaDetails = { topic: 'topic_learned_well', attendance: true };
+        } else if (savedProgressScore === 15) {
+            // Ambiguous: Could be (Topic 10 + HW 5) or (Topic 5 + Att 10). Defaulting to Topic 10 + HW 5
+            criteriaDetails = { topic: 'topic_learned_well', homework: true };
+        } else if (savedProgressScore === 10) {
+             // Ambiguous: Could be (Topic 10) or (Topic 5 + HW 5) or (Att 10). Defaulting to Topic 10
+            criteriaDetails = { topic: 'topic_learned_well' };
+        } else if (savedProgressScore === 5) {
+             // Ambiguous: Could be (Topic 5) or (HW 5). Defaulting to Topic 5
+            criteriaDetails = { topic: 'topic_understood' };
+        } else if (savedProgressScore === -5) {
+            criteriaDetails = { topic: 'topic_none' };
+        }
+    }
+
+    if (typeof criteriaDetails === 'string') {
+        try { criteriaDetails = JSON.parse(criteriaDetails); } catch (e) { console.error('Error parsing criteriaDetails:', e); }
+    }
+    console.log(`[DEBUG] Student ${student.id} ScoreData:`, scoreData, 'Criteria:', criteriaDetails);
+
+    const topicChoice = criteriaDetails.topic || criteriaDetails.Topic || '';
+    const homeworkChecked = criteriaDetails.homework || criteriaDetails.Homework || criteriaDetails.homework_done === true || false;
+    const attendanceChecked = criteriaDetails.attendance || criteriaDetails.Attendance || criteriaDetails.attendance_regular === true || false;
+    
+    // Calculate initial Progress Score for display
+    let initialProgressScore = 0;
+    if (topicChoice) {
+        const topicOpt = ProgressCriteria.topic.find(t => t.id === topicChoice);
+        if (topicOpt) initialProgressScore += topicOpt.marks;
+    }
+    if (homeworkChecked) initialProgressScore += 5; // Hardcoded from options
+    if (attendanceChecked) initialProgressScore += 10; // Hardcoded from options
+    initialProgressScore = Math.min(Math.max(initialProgressScore, -5), maxProgress);
     const comments = scoreData?.comments || '';
     const problemRecovered = scoreData?.problemRecovered || false; // Load saved status
 
@@ -778,6 +973,12 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
                     <div class="font-semibold text-gray-900 dark:text-white">${helpers.ensureBengaliText ? helpers.ensureBengaliText(student.name || '') : student.name || ''}</div>
                     <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${className} • ${sectionName}</div>
                     ${_renderStudentRoleBadge(student.role)}
+                    <div class="mt-1">
+                        ${scoreData 
+                            ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">উপস্থিত</span>`
+                            : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">অনুপস্থিত</span>`
+                        }
+                    </div>
                     
                     <!-- Problem Recovered Checkbox Container -->
                     <div class="problem-recovered-container mt-2 ${showProblemRecovered ? '' : 'hidden'}">
@@ -799,41 +1000,54 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
     }" aria-label="${student.name} MCQ Score"></td>
                 <td class="td criteria-cell" data-max-Progress="${maxProgress}">
                     <fieldset class="space-y-2">
-                        <legend class="sr-only">অগ্রগতি ক্রাইটেরিয়া</legend>
-                        ${ProgressCriteria.topic
-                          .map(
-                            (opt) => `
-                            <label class="flex items-center text-xs space-x-2 cursor-pointer">
-                                <input type="radio" name="topic-${student.id}" value="${opt.id}" data-marks="${
-                              opt.marks
-                            }" ${topicChoice === opt.id ? 'checked' : ''} class="criteria-input topic-radio">
-                                <span>${opt.text} (${opt.marks > 0 ? '+' : ''}${helpers.convertToBanglaNumber(
-                              opt.marks
-                            )})</span>
-                            </label>
-                        `
-                          )
-                          .join('')}
-                        <hr class="dark:border-gray-600 my-1">
-                        ${ProgressCriteria.options
-                          .map(
-                            (opt) => `
-                            <label class="flex items-center text-xs space-x-2 cursor-pointer">
-                                <input type="checkbox" name="${opt.id}-${student.id}" value="${opt.id}" data-marks="${
-                              opt.marks
-                            }" ${homeworkChecked && opt.id === 'homework_done' ? 'checked' : ''} ${
-                              attendanceChecked && opt.id === 'attendance_regular' ? 'checked' : ''
-                            } class="criteria-input">
-                                <span>${opt.text} (+${helpers.convertToBanglaNumber(opt.marks)})</span>
-                            </label>
-                        `
-                          )
-                          .join('')}
+                        <div class="flex justify-between items-center mb-1">
+                            <legend class="sr-only">অগ্রগতি ক্রাইটেরিয়া</legend>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 progress-score-badge">
+                                স্কোর: ${helpers.convertToBanglaNumber(initialProgressScore)}
+                            </span>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">টপিক নলেজ:</label>
+                            ${ProgressCriteria.topic
+                              .map(
+                                (opt) => `
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="radio" name="topic-${student.id}" value="${opt.id}" data-marks="${
+                                  opt.marks
+                                }" ${topicChoice === opt.id ? 'checked' : ''} class="criteria-input topic-radio form-radio h-3 w-3 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                    <span class="text-xs text-gray-700 dark:text-gray-300">${opt.text} (${helpers.convertToBanglaNumber(
+                                  opt.marks
+                                )})</span>
+                                </label>
+                            `
+                              )
+                              .join('')}
+                        </div>
+                        <div class="space-y-1 pt-2 border-t border-gray-100 dark:border-gray-700">
+                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">অন্যান্য:</label>
+                            ${ProgressCriteria.options
+                              .map(
+                                (opt) => `
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="${opt.id}-${student.id}" value="${opt.id}" data-marks="${
+                                  opt.marks
+                                }" ${homeworkChecked && opt.id === 'homework_done' ? 'checked' : ''} ${
+                                  attendanceChecked && opt.id === 'attendance_regular' ? 'checked' : ''
+                                } class="criteria-input form-checkbox h-3 w-3 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                                    <span class="text-xs text-gray-700 dark:text-gray-300">${opt.text} (+${helpers.convertToBanglaNumber(
+                                  opt.marks
+                                )})</span>
+                                </label>
+                            `
+                              )
+                              .join('')}
+                        </div>
                     </fieldset>
                 </td>
-                <td class="td"><textarea class="form-input text-xs p-1 comments-input" rows="3" placeholder="পাঠদান-মন্তব্য..." aria-label="${
-                  student.name
-                } Comments">${comments}</textarea></td>
+                </td>
+                <td class="td">
+                    <textarea class="form-input text-xs p-1 comments-input" rows="3" placeholder="পাঠদান-মন্তব্য..." aria-label="${student.name} Comments" data-manual-comment="${comments ? 'true' : 'false'}">${comments}</textarea>
+                </td>
                 <td class="td text-center font-bold text-lg total-score-display dark:text-white" data-total-max="${totalMaxScore}">
                    ${
                      scoreData?.totalScore !== undefined
@@ -902,6 +1116,27 @@ function _renderEvaluationForm(task, group, students, existingScores = null) {
       
       uiManager.showToast('সকল অগ্রগতি ক্রাইটেরিয়া রিসেট করা হয়েছে', 'info', 2000);
     });
+  }
+
+  // Add event listener for manual comment override
+  const form = document.getElementById('dynamicEvaluationForm');
+  if (form) {
+      form.addEventListener('input', (e) => {
+          if (e.target.classList.contains('comments-input')) {
+              e.target.dataset.manualComment = 'true';
+          }
+      });
+      
+      // Initial Auto-Comment Population for empty comments (e.g. new evaluation)
+      // We need to trigger score calculation for rows with empty comments to populate the default text
+      form.querySelectorAll('.student-row').forEach(row => {
+          const commentInput = row.querySelector('.comments-input');
+          if (commentInput && !commentInput.value) {
+               // Trigger calculation to set default comment
+               const anyInput = row.querySelector('.score-input');
+               if (anyInput) _handleScoreInput(anyInput);
+          }
+      });
   }
 }
 
@@ -976,9 +1211,38 @@ function _handleScoreInput(inputElement) {
   });
   ProgressScore = Math.min(Math.max(ProgressScore, -5), maxProgress); // Cap
 
+  // Update Badge
+  const badge = row.querySelector('.progress-score-badge');
+  if (badge) {
+      badge.textContent = `স্কোর: ${helpers.convertToBanglaNumber(ProgressScore)}`;
+  }
+
   // 3. Calculate Total
   const calculatedTotal = taskScore + teamScore + mcqScore + ProgressScore;
   const finalTotal = Math.min(Math.max(calculatedTotal, 0), totalMaxScore); // Cap total 0-TotalMax
+
+  // --- Automated Comment Logic ---
+  const commentInput = row.querySelector('.comments-input');
+  if (commentInput && commentInput.dataset.manualComment !== 'true') {
+      const percentage = totalMaxScore > 0 ? (finalTotal / totalMaxScore) * 100 : 0;
+      let autoComment = '';
+      
+      if (percentage < 33) {
+          autoComment = 'দুঃখজনক! পুনঃ চেষ্টা কর...';
+      } else if (percentage < 60) {
+          autoComment = 'চেষ্টা দেখে আনন্দিত.!';
+      } else if (percentage < 80) {
+          autoComment = 'খুব ভালো অগ্রগতি!';
+      } else {
+          autoComment = 'অসাধারন অগ্রগতি!';
+      }
+      
+      // Only update if changed to avoid cursor jumping (though unlikely on programmatic update)
+      if (commentInput.value !== autoComment) {
+          commentInput.value = autoComment;
+      }
+  }
+  // -------------------------------
 
   if (totalDisplay) {
     totalDisplay.textContent = helpers.convertToBanglaNumber(finalTotal.toFixed(2));
@@ -1009,9 +1273,15 @@ async function _handleSubmitEvaluation() {
     return;
   }
 
-  const taskId = elements.evaluationTaskSelect?.value;
-  const groupId = elements.evaluationGroupSelect?.value;
+  const form = document.getElementById('dynamicEvaluationForm');
+  const taskId = elements.evaluationTaskSelect?.value || form?.dataset.taskId;
+  const groupId = elements.evaluationGroupSelect?.value || form?.dataset.groupId;
   const task = stateManager.get('tasks').find((t) => t.id === taskId);
+  // Auto-recover breakdown if missing
+  if (!currentTaskBreakdown && task) {
+      currentTaskBreakdown = task.maxScoreBreakdown || SCORE_BREAKDOWN_MAX;
+  }
+
   if (!task || !groupId || !currentTaskBreakdown) {
     uiManager.showToast('অবৈধ টাস্ক, গ্রুপ, বা স্কোর ব্রেকডাউন। ফর্মটি রিলোড করুন।', 'error');
     return;
@@ -1049,18 +1319,12 @@ async function _handleSubmitEvaluation() {
     const teamScoreRaw = teamInput?.value;
     const mcqScoreRaw = mcqInput?.value;
 
-    // Check if row is empty (all score inputs are empty AND no criteria selected)
-    const isRowEmpty =
-      taskScoreRaw === '' &&
-      teamScoreRaw === '' &&
-      mcqScoreRaw === '' &&
-      !topicRadio &&
-      !homeworkCheck?.checked &&
-      !attendanceCheck?.checked;
+    // Check if row is empty (no inputs filled)
+    const isEmpty = !taskScoreRaw && !teamScoreRaw && !mcqScoreRaw && !topicRadio && !homeworkCheck?.checked && !attendanceCheck?.checked && !problemRecovered;
 
-    if (isRowEmpty) {
-      row.style.outline = ''; // Not an error, just skip
-      return; // Skip this student, don't score them
+    if (isEmpty) {
+      // Row is empty, treat as absent/unevaluated
+      return; 
     }
 
     // Row is not empty, so validate it
